@@ -3,19 +3,24 @@ package ovpn
 import (
 	"io"
 	"log"
-	. "net"
-	"os"
 	"os/exec"
 )
 
-type oVPN struct {
-	path		string
-	remoteAddr	TCPAddr
-	certFile	string
-	keyFile		string
-	proc		*os.Process
+type OVPN struct {
+	Path		string
+	RemoteIP	string
+	RemotePort	string
+	LocalPort	string
+	RemoteTunIP	string
+	LocalTunIP	string
+	CertFile	string
+	KeyFile		string
+	LogFile		string
+	ErrFile		string
+	Cmd			*exec.Cmd
 }
 
+// Functions to spawn jobs that turn readers/writers to channels
 func spawnWriteChan(c io.WriteCloser) (o chan string) {
 	return
 }
@@ -28,27 +33,33 @@ func spawnReadWriteChan(c io.ReadWriteCloser) (o chan string) {
 	return
 }
 
-func (v *oVPN) Connect() (in,out,err chan string) {
-	cmd := exec.Command(v.path)
+func (v *OVPN) Connect() {
+	cmd := exec.Command(v.Path,
+		"--mode","p2p",
+		"--proto","udp",
+		"--dev-type","tap",
+		"--remote",v.RemoteIP,
+		"--rport",v.RemotePort,
+		"--lport",v.LocalPort,
+		"--cert",v.CertFile,
+		"--key",v.KeyFile,
+		"--ifconfig",v.LocalTunIP,"255.255.255.252",
+		"--route",v.RemoteIP,"255.255.255.255",v.RemoteTunIP)
+
 	e := cmd.Run()
+
 	if e != nil {
 		log.Fatal(e.Error())
 	}
-	v.proc = cmd.Process
-	in = make(chan string)
-	out = make(chan string)
-	err = make(chan string)
+
+	v.Cmd = cmd
 	return
 }
 
-func (oVPN) Disconnect() {
+func (v *OVPN) Disconnect() {
 	return
 }
 
-func (oVPN) Restart() {
+func (v *OVPN) Restart() {
 	return
-}
-
-func New(addr,port,cert,key string) oVPN {
-	return oVPN{}
 }
