@@ -4,7 +4,7 @@ import (
 	"flag"
 	"os"
 	"time"
-	"pki/keygen"
+	"tvpn/pki/keygen"
 	"crypto/x509/pkix"
 	"log"
 )
@@ -18,7 +18,7 @@ var (
 func main() {
 	flag.Parse()
 
-	if len(*cn) == 0 || len(*name) == 0 || len(*ktype) == 0 {
+	if (len(*cn) == 0 || len(*name) == 0 || len(*ktype) == 0) {
 		log.Fatal("invalid input! need all of -cn, -name, and -type")
 	}
 
@@ -51,7 +51,7 @@ func main() {
 		CommonName: *cn,
 	}
 
-	key, cert := keygen.GenKey(kType,2048,subj,time.Now(),365*24*time.Hour)
+	key, cert := keygen.GenPKIKeyPair(kType,2048,subj,time.Now(),365*24*time.Hour)
 
 	certOutFile.Write(cert.Bytes())
 	certOutFile.Close()
