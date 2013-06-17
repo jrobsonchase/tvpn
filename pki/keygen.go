@@ -1,4 +1,4 @@
-package keygen
+package pki
 
 import (
 	"bytes"
