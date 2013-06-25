@@ -13,13 +13,15 @@ func DiscoverExternal(port int,helper *net.UDPAddr) (*net.UDPAddr) {
 	laddr := &net.UDPAddr{Port: port}
 	conn, err := net.DialUDP(rem, laddr, helper)
 	if err != nil {
-		log.Fatalf("Failed to bind UDP: %s",err)
+		log.Printf("Failed to bind UDP: %s",err)
+		return nil
 	}
 
 	// send the request for info
 	n, err := conn.Write([]byte{Req})
 	if err != nil {
-		log.Fatalf("Failed to send request: %s",err)
+		log.Printf("Failed to send request: %s",err)
+		return nil
 	}
 	log.Printf("Wrote %d bytes to %s",n,rem)
 
@@ -27,7 +29,8 @@ func DiscoverExternal(port int,helper *net.UDPAddr) (*net.UDPAddr) {
 	resp := make([]byte, 25)
 	n, err = conn.Read(resp)
 	if err != nil {
-		log.Fatalf("Failed to read response: %s",err)
+		log.Printf("Failed to read response: %s",err)
+		return nil
 	}
 	log.Printf("Read %d bytes from %s",n,rem)
 
@@ -45,11 +48,11 @@ func DiscoverExternal(port int,helper *net.UDPAddr) (*net.UDPAddr) {
 	// convert the port bytes to int64
 	extPort,n := binary.Varint(portBytes)
 	if n == 0 {
-		log.Fatal("Failed to read integer from portBytes")
+		log.Print("Failed to read integer from portBytes")
+		return nil
 	}
 
 	return &net.UDPAddr{ IP: ipBytes, Port: int(extPort) }
-
 
 }
 

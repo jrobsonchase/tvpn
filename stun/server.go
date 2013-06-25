@@ -22,6 +22,8 @@ func ServeStun(port int) {
 			log.Fatalf("Failed to read from remote: %s",err)
 		}
 
+		log.Printf("Got request from %s:%d",raddr.IP.String(),raddr.Port)
+
 		n = binary.PutVarint(portBytes,int64(raddr.Port))
 		if n == 0 {
 			log.Fatal("Failed to convert port to bytes")
