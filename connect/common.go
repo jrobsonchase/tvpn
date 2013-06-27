@@ -1,163 +1,184 @@
 package connect
 
 import (
-	"strings"
 	"bufio"
-	"log"
-	"io"
 	"fmt"
+	"log"
 	"net"
-	"runtime"
+	"strings"
+
+	//	"runtime"
 )
 
 type ConnMsg struct {
 	Type string
-	IP net.IP
+	From string
+	To   string
+	IP   net.IP
 	Port int
-	Key string
+	Key  string
+}
+
+type MsgErr struct {
+	Text string
+}
+
+func (m *MsgErr) Error() string {
+	return "Error parsing token: " + m.Text
 }
 
 type CConv struct {
-	Msgs chan ConnMsg
-	Repl chan ConnMsg
-	done chan bool
+	With string
+	To   chan ConnMsg
+	From chan ConnMsg
+	Done chan bool
+	mut chan bool
+	conn net.Conn
+}
+
+type ConnErr string
+
+func (c *ConnErr) Error() string {
+	msg := string(*c) + "did not send HELLO!"
+	return msg
 }
 
 const (
-	Init string = "INIT"
+	Hello   string = "HELLO"
+	Bye		string = "BYE"
+	Init    string = "INIT"
 	AccInfo string = "ACCINFO"
-	Acc string = "ACC"
-	Rej string = "REJ"
+	Acc     string = "ACC"
+	Rej     string = "REJ"
 )
 
-func sendMessage(conn io.Writer, recip string, msg ConnMsg) error {
-	switch msg.Type {
-	case Init:
-		fmt.Fprintf(conn,"%s %s %s %d %s",recip,Init,msg.IP.String(),msg.Port,msg.Key)
-	case AccInfo:
-		fmt.Fprintf(conn,"%s %s %s %d %s",recip,AccInfo,msg.IP.String(),msg.Port,msg.Key)
-	case Acc:
-		fmt.Fprintf(conn,"%s %s",recip,Acc)
-	case Rej:
-		fmt.Fprintf(conn,"%s %s",recip,msg.Key)
+func validType(s string) bool {
+	switch s {
+	case Hello,Bye,Init,AccInfo,Acc,Rej:
+		return true
 	default:
-		log.Print("Invalid message type!")
+		return false
 	}
-	return nil
 }
 
-func DispatchMsgs(conn bufio.ReadWriter) error {
-	convos := make(map[string] CConv)
-
-	// creates a routine that continually queries the current
-	// conversations for messages or disconnects
-	go manageConvos(conn, &convos)
-
-
-	log.Print("begin message handling...")
-
-	for i := 0; i < 128; {
-		line,err := conn.ReadString('\n')
+func readMsgs(from *bufio.Reader, out chan ConnMsg, done chan bool) {
+	for {
+		msg, err := readMessage(from)
 		if err != nil {
-			log.Fatalf("Failed to read line: %s",err)
+			break
 		}
-		inStrs := make([]string, 10)
-		scanner := bufio.NewScanner(strings.NewReader(line))
-		scanner.Split(bufio.ScanWords)
-
-		for j := 0; j < 10 && scanner.Scan(); {
-			inStrs[j] = scanner.Text()
-			log.Printf("Read %s from net",inStrs[j])
-			j++
-		}
-
-		var name string
-		var msg ConnMsg
-		// make sure the command is valid, otherwise restart loop
-		switch inStrs[0] {
-		case Init,AccInfo,Acc,Rej:
-			name = inStrs[1]
-		default:
-			log.Printf("TypeString not recognized: %s",inStrs[0])
-			continue
-		}
-
-		// if it's a message for an existing convo, make sure it's been Init'd
-		switch inStrs[0] {
-		case AccInfo,Acc,Rej:
-			_,exists := convos[name]
-			if ! exists {
-				log.Printf("Conversation with %s does not exist!",name)
-				continue
-			}
-		default:
-		}
-
-		// Grab other info from the messages
-		switch inStrs[0] {
-		case Init,AccInfo:
-			ip := inStrs[2]
-			var port int
-			fmt.Fscanf(strings.NewReader(inStrs[3]),"%d",&port)
-			key := inStrs[4]
-			msg = ConnMsg{Type: inStrs[0], IP: net.ParseIP(ip),Port: port, Key: key}
-		case Acc:
-			msg = ConnMsg{Type: Acc}
-		case Rej:
-			reason := inStrs[2]
-			msg = ConnMsg{Type: Rej, Key: reason}
-		}
-
-		// if it's init, a new convo needs to start
-		if inStrs[0] == Init {
-			convos[name] = CConv{Msgs: make(chan ConnMsg),Repl: make(chan ConnMsg),done: make(chan bool)}
-			go converse(name,convos[name])
-			i = len(convos)
-		}
-
-		// finally, send the message to the convo
-		convos[name].Msgs <- msg
+		out <- *msg
 	}
+	done <-true
+}
+
+func readMessage(from *bufio.Reader) (msg *ConnMsg, err error) {
+	line, err := from.ReadString('\n')
+	if err != nil {
+		log.Fatalf("Failed to read line: %s", err)
+		return nil, err
+	}
+
+	input := make([]string, 10)
+	scanner := bufio.NewScanner(strings.NewReader(line))
+	scanner.Split(bufio.ScanWords)
+
+	for j := 0; j < 10 && scanner.Scan(); {
+		input[j] = scanner.Text()
+		log.Printf("Read %s from net", input[j])
+		j++
+	}
+
+	to := input[0]
+	inStrs := input[1:]
+
+	var name string
+	// make sure the command is valid, otherwise restart loop
+	switch {
+	case validType(inStrs[0]):
+		name = inStrs[1]
+		msg = &ConnMsg{Type: inStrs[0],To: to, From: name}
+	default:
+		return nil, &MsgErr{inStrs[0]}
+	}
+
+	// Grab other info from the messages
+	switch inStrs[0] {
+	case Init, AccInfo:
+		ip := inStrs[2]
+		var port int
+		fmt.Fscanf(strings.NewReader(inStrs[3]), "%d", &port)
+		key := inStrs[4]
+		msg.IP = net.ParseIP(ip)
+		msg.Port = port
+		msg.Key = key
+	case Rej:
+		reason := inStrs[2]
+		msg.Key = reason
+	}
+
+	// finally, send the message to the convo
+	log.Printf("returning %s from %s",msg.Type,msg.From)
+	return msg, nil
+}
+
+func sendMessage(conn *bufio.Writer, msg ConnMsg) error {
+	var err error
+	if validType(msg.Type) {
+		_,err = fmt.Fprintf(conn,"%s %s %s ",msg.To,msg.Type,msg.From)
+	} else {
+		log.Print("Invalid message type!")
+		return &MsgErr{msg.Type}
+	}
+
+	switch msg.Type {
+	case Init,AccInfo:
+		_,err = fmt.Fprintf(conn, "%s %d %s\n", msg.IP.String(), msg.Port, msg.Key)
+	case Rej:
+		_,err = fmt.Fprintf(conn, "%s\n", msg.To, Rej, msg.Key)
+	default:
+		_,err = fmt.Fprintf(conn,"\n")
+	}
+	if err != nil {
+		return err
+	}
+	conn.Flush()
+	log.Print("Sent Message!")
 	return nil
 }
 
-// this is a stub. need to put real logic and functionality into it
-func converse(name string,conv CConv) {
-	log.Print("Starting new convo...")
-	defer func() {conv.done <- true}()
+func sendMsgs(write *bufio.Writer, msgs chan ConnMsg,done chan bool) {
 	for {
-		msg := <-conv.Msgs
-		log.Printf("%s %s %d %s",msg.Type,msg.IP,msg.Port,msg.Key)
-		conv.Repl <-ConnMsg{Type: AccInfo,IP: net.ParseIP("0.0.0.0"),Port: 25, Key: "1234"}
+		msg,ok := <-msgs
+		if ! ok {
+			break
+		}
+		err := sendMessage(write, msg)
+		if err != nil {
+			log.Print(err)
+			done <-true
+			break
+		}
 	}
 }
 
-// repeatedly query the conversations for messages/done notifications
-func manageConvos(conn bufio.ReadWriter,cs *map[string] CConv) {
-	for {
-		l := len(*cs)
-		// semaphore to make sure we only restart the iteration
-		// when all convos have had a chance to go
-		s := make(chan bool,l)
-		// fire off all of the convos
-		for i,v := range *cs {
-			go func(n string,c CConv,sem chan bool) {
-				select {
-				case msg := <-c.Repl:
-					sendMessage(conn,i,msg)
-				case <-c.done:
-					delete(*cs,n)
-				default:
-				}
-				// say that it's done with this go-round
-				sem <- true
-			}(i,v,s)
-		}
-		// wait for everyone to finish
-		for i := 0; i < l; i++ {
-			<-s
-		}
-		// let someone else go - may not be necessary
-		runtime.Gosched()
-	}
+func initConvo(name string,conn net.Conn) *CConv {
+	read := bufio.NewReader(conn)
+	write := bufio.NewWriter(conn)
+	toChan := make(chan ConnMsg)
+	fromChan := make(chan ConnMsg)
+	done := make(chan bool,2)
+	go readMsgs(read, fromChan, done)
+	go sendMsgs(write, toChan,done)
+
+	return &CConv{With: name, From: fromChan, To: toChan, Done: done,conn: conn}
+}
+
+func (convo *CConv) End() {
+	close(	convo.To)
+	convo.conn.Close()
+}
+
+func printMsg(msg ConnMsg) {
+	fmt.Printf("%s %s %s %s %d %s",msg.To,msg.Type,msg.From,msg.IP,msg.Port,msg.Key)
 }
