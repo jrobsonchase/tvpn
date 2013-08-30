@@ -14,8 +14,8 @@ type OVPN struct {
 	LocalPort	string
 	RemoteTunIP	string
 	LocalTunIP	string
-	CertFile	string
 	KeyFile		string
+	Direction	bool
 	LogFile		string
 	ErrFile		string
 	Cmd			*exec.Cmd
@@ -24,19 +24,25 @@ type OVPN struct {
 var ovpnOpts []string = []string{
 	"--mode","p2p",
 	"--proto","udp",
-	"--dev-type","tap",
-	"--tls-exit",
+	"--dev","tap",
 	"--ping-exit","30",
 	"--ping","10"}
 
 func (v *OVPN) Connect() {
+	// Set direction for --secret option - allows all of the secret to be used
+	var dir string
+	if v.Direction {
+		dir = "1"
+	} else {
+		dir = "0"
+	}
+
 	cmd := exec.Command(v.Path,
 	append(ovpnOpts,
 		"--remote",v.RemoteIP,
 		"--rport",v.RemotePort,
 		"--lport",v.LocalPort,
-		"--cert",v.CertFile,
-		"--key",v.KeyFile,
+		"--secret",v.KeyFile,dir
 		"--ifconfig",v.LocalTunIP,"255.255.255.252")...)
 
 	e := cmd.Run()

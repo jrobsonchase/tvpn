@@ -1,20 +1,29 @@
 package dh
 
 import (
+	"crypto/elliptic"
+	"crypto/rand"
 	"math/big"
 )
 
 type Params struct {
-	P *big.Int
-	G *big.Int
+	Priv []byte
+	X *big.Int
+	Y *big.Int
 }
 
-func GenPub(secret *big.Int, params Params) *big.Int {
-	result := big.NewInt(0)
-	result.Exp(params.G,secret,params.P)
-	return result
+var curve elliptic.Curve
+
+func init() {
+	curve = elliptic.P521()
 }
 
-func GenMutSecret(secret, remote *big.Int, params Params) *big.Int {
-	return big.NewInt(0).Exp(remote,secret,params.P)
+func GenParams() (Params) {
+	priv,x,y,_ := elliptic.GenerateKey(curve,rand.Reader)
+	return Params{priv,x,y}
+}
+
+func GenMutSecret(local, remote Params) *big.Int {
+	secret,_ := curve.ScalarMult(remote.X,remote.Y,local.Priv)
+	return secret
 }

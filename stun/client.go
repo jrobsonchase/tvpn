@@ -6,11 +6,16 @@ import (
 	"log"
 )
 
-func DiscoverExternal(port int,helper *net.UDPAddr) (*net.UDPAddr) {
+func DiscoverExternal(port int, addr string) (*net.UDPAddr) {
 
 	// Make the initial connection to the helper server
 	rem := "udp"
 	laddr := &net.UDPAddr{Port: port}
+	helper,err := net.ResolveUDPAddr(rem,addr)
+	if err != nil {
+		log.Printf("Failed to resolve UDP: %s",err)
+		return nil
+	}
 	conn, err := net.DialUDP(rem, laddr, helper)
 	if err != nil {
 		log.Printf("Failed to bind UDP: %s",err)
