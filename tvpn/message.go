@@ -1,4 +1,4 @@
-package message
+package tvpn
 
 import (
 	"regexp"
@@ -30,7 +30,7 @@ func (e messageError) Error() string {
 }
 
 const (
-	initRE string = `^INIT (?P<name>[a-zA-Z_\\[\]{}^|][a-zA-Z_\\[\]{}^|0-9\-]*)$`
+	initRE string = `^INIT$`
 	acceptRE = `^ACCEPT$`
 	denyRE = `^DENY (?P<reason>.*)$`
 	dhpubRE = `^DHPUB (?P<x>[a-f0-9]+) (?P<y>[a-f0-9]+)$`
@@ -51,7 +51,6 @@ func ParseMessage(message string) (*Message,error) {
 
 	switch {
 	case init.MatchString(message):
-		data["name"] = init.ReplaceAllString(message,"${name}")
 		return &Message{Type: Init,Data: data},nil
 
 	case accept.MatchString(message):
