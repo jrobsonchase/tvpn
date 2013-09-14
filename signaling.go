@@ -1,6 +1,6 @@
 package tvpn
 
 type Backend interface {
-	SendMessage(Message)
+	SendMessage(Message) error
 	RecvMessage() Message
 }

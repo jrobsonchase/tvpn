@@ -1,40 +1,37 @@
 package irc
 
 import (
-	"strconv"
-	"strings"
-	"fmt"
 	"irc"
-	"regexp"
-	"tvpn/tvpn"
+	"tvpn"
 )
 
 type IRCBackend struct {
-	Conn *irc.Conn
+	Conn        *irc.Conn
 	MsgExpector irc.Expector
-	Messages chan irc.Command
-	Joins chan irc.Command
-	Convos chan map[string]irc.ExpectChan
+	Messages    chan irc.Command
+	Status      chan irc.Command
+	Convos      chan map[string]irc.ExpectChan
 }
 
 func Connect(host, nick, group string) (*IRCBackend, error) {
-	conn,err := irc.DialIRC(host, []string{nick}, nick, nick)
+	conn, err := irc.DialIRC(host, []string{nick}, nick, nick)
 	if err != nil {
 		return nil, err
 	}
-	_,err = conn.Register()
-	if err != nil {
-		return nil, err
-	}
-
-	chann,err := conn.Join(group)
+	_, err = conn.Register()
 	if err != nil {
 		return nil, err
 	}
 
-	joinpart,_ := irc.Expect(chann, irc.Command{"","(JOIN)|(PART)",[]string{}})
-	quit,_ := irc.Expect(conn, irc.Command{"","QUIT",[]string{}})
+	chann, err := conn.Join(group)
+	if err != nil {
+		return nil, err
+	}
+
+	joinpart, _ := irc.Expect(chann, irc.Command{"", "(JOIN)|(PART)", []string{}})
+	quit, _ := irc.Expect(conn, irc.Command{"", "QUIT", []string{}})
 	status := make(chan irc.Command)
+	// Combine joinpart and quit into one channel
 	go func() {
 		for {
 			select {
@@ -46,65 +43,47 @@ func Connect(host, nick, group string) (*IRCBackend, error) {
 		}
 	}()
 
-	msgs,err := irc.Expect(conn, irc.Command{"","PRIVMSG",[]string{nick}})
+	msgs, err := irc.Expect(conn, irc.Command{"", "PRIVMSG", []string{nick}})
 	if err != nil {
 		return nil, err
 	}
 
-	convos := make(map[string]irc.ExpectChan)
 	users := chann.GetUsers()
-	for _,v := range users {
-		fmt.Printf("Nick: %s\n",v.Nick)
-		fmt.Printf("Name: %s\n",v.Name)
-	}
+	go makeJoin(users, status)
 
-
-	//msgExpector := irc.MakeExpector(msgs.Chan)
-	convoChan := make(chan map[string]irc.ExpectChan,1)
-	convoChan <- convos
-
-	return &IRCBackend{Conn: conn,Messages: msgs.Chan,Joins: status,Convos: convoChan},nil
+	return &IRCBackend{Conn: conn, Messages: msgs.Chan, Status: status}, nil
 }
 
-func parseMultiPart(message irc.Command) (string,int) {
-	var remaining int
-	var content string
-
-	mpartParser := regexp.MustCompile(`^MPART (?P<remaining>[0-9]+) (?P<content>.*)$`)
-
-	body := message.Params[len(message.Params)-1]
-	if mpartParser.MatchString(body) {
-		content = mpartParser.ReplaceAllString(body,"${content}")
-		remaining,_ = strconv.Atoi(mpartParser.ReplaceAllString(body,"${remaining}"))
-	} else {
-		content = body
-		remaining = 0
+func makeJoin(users map[string]irc.IRCUser, status chan<- irc.Command) {
+	for _, v := range users {
+		status <- irc.Command{v.String(), irc.Join, []string{}}
 	}
-	return content,remaining
 }
 
-// TODO - this doesn't work with multiple senders. Also doesn't supply sender
-func (b IRCBackend) RecvMessage() *tvpn.Message {
+func (b IRCBackend) RecvMessage() tvpn.Message {
 	for {
-		parts := make([]string,256)
-		i := 0
-		for {
-			msg := <-b.Messages
-			content,left := parseMultiPart(msg)
-			parts[i] = content
-			i++
-			if left == 0 {
-				break
+		select {
+		case input := <-b.Messages:
+			ircMsg := input.Message()
+			msg, err := tvpn.ParseMessage(input.Params[len(input.Params)-1])
+			if err == nil {
+				msg.From = ircMsg.Nick
+				return *msg
+			}
+		case input := <-b.Status:
+			switch input.Command {
+			case "QUIT", "PART":
+				return tvpn.Message{From: input.Message().Nick, Type: tvpn.Quit}
+			case "JOIN":
+				if input.Message().Nick != b.Conn.Nick {
+					return tvpn.Message{From: input.Message().Nick, Type: tvpn.Join}
+				}
 			}
 		}
-		var content string
-		content = strings.Join(parts,"")
 
-		msg,err := tvpn.ParseMessage(content)
-		if err == nil {
-			return msg
-		}
 	}
 }
 
-
+func (b IRCBackend) SendMessage(mes tvpn.Message) error {
+	return b.Conn.Send(irc.Command{b.Conn.Nick, irc.Privmsg, []string{mes.To, mes.String()}})
+}
