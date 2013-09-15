@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"tvpn/ovpn"
+	"tvpn/dh"
 )
 
 type ConState struct {
 	State        int
 	Name         string
-	Params       []ovpn.Params
+	Params       []dh.Params
 	Key          []*big.Int
 	IP           net.IP
 	Friend, Init bool
@@ -48,10 +48,10 @@ func (st *ConState) noneState(mes Message, tvpn TVPN) {
 	case Init:
 		if st.Friend {
 			tvpn.Sig.SendMessage(Message{Type: Accept, To: st.Name})
-			st.Params = make([]ovpn.Params, 4)
+			st.Params = make([]dh.Params, 4)
 			st.Key = make([]*big.Int, 4)
 			for i := 0; i < 4; i++ {
-				st.Params[i] = ovpn.GenParams()
+				st.Params[i] = dh.GenParams()
 				tvpn.Sig.SendMessage(Message{Type: Dhpub, Data: map[string]string{
 					"i": fmt.Sprintf("%d", i),
 					"x": base64.StdEncoding.EncodeToString(st.Params[i].X.Bytes()),
@@ -73,10 +73,10 @@ func (st *ConState) noneState(mes Message, tvpn TVPN) {
 func (st *ConState) initState(mes Message, tvpn TVPN) {
 	switch mes.Type {
 	case Accept:
-		st.Params = make([]ovpn.Params, 4)
+		st.Params = make([]dh.Params, 4)
 		st.Key = make([]*big.Int, 4)
 		for i := 0; i < 4; i++ {
-			st.Params[i] = ovpn.GenParams()
+			st.Params[i] = dh.GenParams()
 			tvpn.Sig.SendMessage(Message{Type: Dhpub, Data: map[string]string{
 				"i": fmt.Sprintf("%d", i),
 				"x": base64.StdEncoding.EncodeToString(st.Params[i].X.Bytes()),
@@ -99,7 +99,7 @@ func (st *ConState) dhnegState(mes Message, tvpn TVPN) {
 				"reason": "Invalid DH Params",
 			}})
 		}
-		st.Key[i] = ovpn.GenMutSecret(st.Params[i], ovpn.Params{X: x, Y: y})
+		st.Key[i] = dh.GenMutSecret(st.Params[i], dh.Params{X: x, Y: y})
 		for _, v := range st.Key {
 			if v == nil {
 				// end state change - still need more keys
