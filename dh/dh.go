@@ -1,4 +1,4 @@
-package ovpn
+package dh
 
 import (
 	"crypto/elliptic"

@@ -1,6 +1,6 @@
 package tvpn
 
-type Backend interface {
+type SigBackend interface {
 	SendMessage(Message) error
 	RecvMessage() Message
 }

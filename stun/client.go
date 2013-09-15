@@ -6,6 +6,24 @@ import (
 	"log"
 )
 
+type StunErr string
+
+func (s StunErr) Error() string {
+	return string(s)
+}
+
+type StunBackend struct {
+	server string
+}
+
+func (b StunBackend) DiscoverExt(port int) (net.IP,int,error) {
+	uadd := DiscoverExternal(port,b.server)
+	if uadd == nil {
+		return nil,0,StunErr("Failed to get external address!")
+	}
+	return uadd.IP,uadd.Port,nil
+}
+
 func DiscoverExternal(port int, addr string) (*net.UDPAddr) {
 
 	// Make the initial connection to the helper server

@@ -75,7 +75,7 @@ func main() {
 	tvpnInstance := tvpn.TVPN{
 		Name:       *ircNick,
 		Group:      *ircChannel,
-		Signaling:  ircBackend,
+		Sig:  ircBackend,
 		STUNServer: *stunString,
 	}
 

@@ -1,8 +1,11 @@
 package tvpn
 
 import (
+	"encoding/base64"
 	"fmt"
+	"math/big"
 	"regexp"
+	"strconv"
 )
 
 type Message struct {
@@ -20,6 +23,7 @@ const (
 	Dhpub
 	Tunnip
 	Conninfo
+	Reset
 )
 
 type messageError struct {
@@ -34,9 +38,10 @@ const (
 	initRE     string = `^INIT$`
 	acceptRE          = `^ACCEPT$`
 	denyRE            = `^DENY (?P<reason>.*)$`
-	dhpubRE           = `^DHPUB (?P<x>[A-Za-z0-9+/=]+) (?P<y>[A-Za-z0-9+/=]+)$`
+	dhpubRE           = `^DHPUB (?P<i>[0-3]) (?P<x>[A-Za-z0-9+/=]+) (?P<y>[A-Za-z0-9+/=]+)$`
 	tunnipRE          = `^TUNNIP (?P<ip>[0-9]{1,3}(?:\.[0-9]{1,3}){3})$`
 	conninfoRE        = `^CONNINFO (?P<ip>[0-9]{1,3}(?:\.[0-9]{1,3}){3}) (?P<port>[0-9]+)$`
+	resetRE           = `^RESET (?P<reason>.*)$`
 )
 
 func (m Message) Print() {
@@ -54,6 +59,7 @@ func ParseMessage(message string) (*Message, error) {
 	dhpub := regexp.MustCompile(dhpubRE)
 	tunnip := regexp.MustCompile(tunnipRE)
 	conninfo := regexp.MustCompile(conninfoRE)
+	reset := regexp.MustCompile(resetRE)
 
 	var data map[string]string = make(map[string]string)
 
@@ -68,9 +74,14 @@ func ParseMessage(message string) (*Message, error) {
 		data["reason"] = deny.ReplaceAllString(message, "${reason}")
 		return &Message{Type: Deny, Data: data}, nil
 
+	case reset.MatchString(message):
+		data["reason"] = reset.ReplaceAllString(message, "${reason}")
+		return &Message{Type: Reset, Data: data}, nil
+
 	case dhpub.MatchString(message):
 		data["x"] = dhpub.ReplaceAllString(message, "${x}")
 		data["y"] = dhpub.ReplaceAllString(message, "${y}")
+		data["i"] = dhpub.ReplaceAllString(message, "${i}")
 		return &Message{Type: Dhpub, Data: data}, nil
 
 	case tunnip.MatchString(message):
@@ -97,11 +108,32 @@ func (m Message) String() string {
 	case Accept:
 		return "ACCEPT"
 	case Dhpub:
-		return fmt.Sprintf("DHPUB %s %s", m.Data["x"], m.Data["y"])
+		return fmt.Sprintf("DHPUB %s %s %s", m.Data["x"], m.Data["y"])
 	case Tunnip:
 		return fmt.Sprintf("TUNNIP %s", m.Data["ip"])
 	case Conninfo:
 		return fmt.Sprintf("CONNINFO %s %s", m.Data["ip"], m.Data["port"])
+	case Reset:
+		return fmt.Sprintf("RESET %s", m.Data["reason"])
 	}
 	return ""
+}
+
+func (m Message) DhParams() (*big.Int, *big.Int, int, error) {
+	if m.Type == Dhpub {
+		xBytes, err := base64.StdEncoding.DecodeString(m.Data["x"])
+		if err != nil {
+			return nil, nil, 0, err
+		}
+		yBytes, err := base64.StdEncoding.DecodeString(m.Data["y"])
+		if err != nil {
+			return nil, nil, 0, err
+		}
+		var x, y *big.Int
+		x.SetBytes(xBytes)
+		y.SetBytes(yBytes)
+		i, _ := strconv.Atoi(m.Data["i"])
+		return x, y, i, nil
+	}
+	return nil, nil, 0, nil
 }

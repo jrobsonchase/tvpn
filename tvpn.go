@@ -1,27 +1,20 @@
 package tvpn
 
-import (
-	"fmt"
-	"net"
-)
+import ()
 
 type TVPN struct {
-	Name, IRCServer, STUNServer, Group string
-	Signaling                          Backend
-	Friends                            []string
+	Name, Group string
+	Friends     []string
+	Sig         SigBackend
+	Stun        StunBackend
+	States      map[string]*ConState
 }
 
-type Conn net.Conn
+func New(name, group string,
+	friends []string,
+	sig SigBackend,
+	stun StunBackend,
+	vpn VPNBackend) *TVPN {
 
-func (t TVPN) TestStun() error {
-	return nil
-}
-
-func (t TVPN) Connect() (*Conn, error) {
-	return nil, nil
-}
-
-func (t TVPN) Run() error {
-	fmt.Printf("Hello, World!\n")
 	return nil
 }
