@@ -2,6 +2,7 @@ package ovpn
 
 import (
 	"fmt"
+	"math/big"
 	"io"
 	"runtime"
 	"log"
@@ -46,7 +47,7 @@ func New() OVPNBackend {
 
 func (ovpn *OVPNBackend) Connect(remoteip,localtun string,
 	remoteport,localport int,
-	key [][]byte,
+	key []*big.Int,
 	dir bool) (*OVPNConn,error) {
 
 	var dirS string

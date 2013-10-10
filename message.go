@@ -1,6 +1,7 @@
 package tvpn
 
 import (
+	"net"
 	"encoding/base64"
 	"fmt"
 	"math/big"
@@ -136,4 +137,15 @@ func (m Message) DhParams() (*big.Int, *big.Int, int, error) {
 		return x, y, i, nil
 	}
 	return nil, nil, 0, nil
+}
+
+func (m Message) IPInfo() (net.IP,int) {
+	if m.Type == Tunnip {
+		return net.ParseIP(m.Data["ip"]),0
+	}
+	if m.Type == Conninfo {
+		port,_ := strconv.Atoi(m.Data["port"])
+		return net.ParseIP(m.Data["ip"]),port
+	}
+	return nil,0
 }

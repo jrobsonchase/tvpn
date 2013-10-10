@@ -14,6 +14,7 @@ type ConState struct {
 	Params       []dh.Params
 	Key          []*big.Int
 	IP           net.IP
+	Port		 int
 	Friend, Init bool
 }
 
@@ -22,37 +23,48 @@ const (
 	InitState
 	DHNeg
 	TunNeg
+	ConNeg
 	Connected
 	Error
 )
 
-func (st *ConState) Input(mes Message, tvpn TVPN) {
+func (st *ConState) Input(mes Message, t TVPN) {
 	switch st.State {
 	case NoneState:
-		st.noneState(mes, tvpn)
+		st.noneState(mes, t.Sig)
 	case InitState:
-		st.initState(mes, tvpn)
+		st.initState(mes, t.Sig)
 	case DHNeg:
-		st.dhnegState(mes, tvpn)
+		st.dhnegState(mes, t.Sig, t.Alloc)
 	case TunNeg:
-		st.tunnegState(mes, tvpn)
+		st.tunnegState(mes, t.Sig,t.Stun, t.Alloc)
 	case Connected:
-		st.connectedState(mes, tvpn)
+		st.connectedState(mes, t.Sig)
 	}
 }
 
+func newState(name string,sig SigBackend) *ConState {
+	sig.SendMessage(Message{Type: Init, To: name})
+	return &ConState{State: InitState,
+		Name: name,
+		Friend: true,
+		Init: true }
+}
+
+
+
 // NoneState is the state in which we wait for an Init
 // Next state is DHNeg after a valid Init
-func (st *ConState) noneState(mes Message, tvpn TVPN) {
+func (st *ConState) noneState(mes Message, sig SigBackend) {
 	switch mes.Type {
 	case Init:
 		if st.Friend {
-			tvpn.Sig.SendMessage(Message{Type: Accept, To: st.Name})
+			sig.SendMessage(Message{Type: Accept, To: st.Name})
 			st.Params = make([]dh.Params, 4)
 			st.Key = make([]*big.Int, 4)
 			for i := 0; i < 4; i++ {
 				st.Params[i] = dh.GenParams()
-				tvpn.Sig.SendMessage(Message{Type: Dhpub, Data: map[string]string{
+				sig.SendMessage(Message{Type: Dhpub, Data: map[string]string{
 					"i": fmt.Sprintf("%d", i),
 					"x": base64.StdEncoding.EncodeToString(st.Params[i].X.Bytes()),
 					"y": base64.StdEncoding.EncodeToString(st.Params[i].Y.Bytes()),
@@ -60,24 +72,24 @@ func (st *ConState) noneState(mes Message, tvpn TVPN) {
 			}
 			st.State = DHNeg
 		} else {
-			tvpn.Sig.SendMessage(Message{Type: Deny, Data: map[string]string{"reason": "Not Authorized"}})
+			sig.SendMessage(Message{Type: Deny, Data: map[string]string{"reason": "Not Authorized"}})
 		}
 	default:
-		tvpn.Sig.SendMessage(Message{Type: Reset, Data: map[string]string{
+		sig.SendMessage(Message{Type: Reset, Data: map[string]string{
 			"reason": "Invalid state: None"}})
 	}
 }
 
 // Init state is after Init is sent and before Accept is received
 // Next state is DHNeg
-func (st *ConState) initState(mes Message, tvpn TVPN) {
+func (st *ConState) initState(mes Message, sig SigBackend) {
 	switch mes.Type {
 	case Accept:
 		st.Params = make([]dh.Params, 4)
 		st.Key = make([]*big.Int, 4)
 		for i := 0; i < 4; i++ {
 			st.Params[i] = dh.GenParams()
-			tvpn.Sig.SendMessage(Message{Type: Dhpub, Data: map[string]string{
+			sig.SendMessage(Message{Type: Dhpub, Data: map[string]string{
 				"i": fmt.Sprintf("%d", i),
 				"x": base64.StdEncoding.EncodeToString(st.Params[i].X.Bytes()),
 				"y": base64.StdEncoding.EncodeToString(st.Params[i].Y.Bytes()),
@@ -85,17 +97,17 @@ func (st *ConState) initState(mes Message, tvpn TVPN) {
 		}
 		st.State = DHNeg
 	default:
-		tvpn.Sig.SendMessage(Message{Type: Reset, Data: map[string]string{
+		sig.SendMessage(Message{Type: Reset, Data: map[string]string{
 			"reason": "Invalid state: Init"}})
 	}
 }
 
-func (st *ConState) dhnegState(mes Message, tvpn TVPN) {
+func (st *ConState) dhnegState(mes Message, sig SigBackend, alloc IPManager) {
 	switch mes.Type {
 	case Dhpub:
 		x, y, i, err := mes.DhParams()
 		if err != nil {
-			tvpn.Sig.SendMessage(Message{Type: Reset, Data: map[string]string{
+			sig.SendMessage(Message{Type: Reset, Data: map[string]string{
 				"reason": "Invalid DH Params",
 			}})
 		}
@@ -106,12 +118,50 @@ func (st *ConState) dhnegState(mes Message, tvpn TVPN) {
 				return
 			}
 		}
+		st.IP = alloc.Request(nil)
+		sig.SendMessage(Message{Type: Tunnip, To: st.Name, Data: map[string]string{"ip": st.IP.String()}})
+		st.State = TunNeg
+	default:
+		sig.SendMessage(Message{Type: Reset, Data: map[string]string{
+			"reason": "Invalid state: DHNeg"}})
 
 	}
 }
 
-func (st *ConState) tunnegState(mes Message, tvpn TVPN) {
+func (st *ConState) tunnegState(mes Message, sig SigBackend, stun StunBackend, alloc IPManager) {
+	switch mes.Type {
+	case Tunnip:
+		ip,_ := mes.IPInfo()
+		if isGreater(ip,st.IP) {
+			alloc.Release(st.IP)
+			st.IP = ip
+		}
+		st.Port = rgen.Int() % (65536 - 49152) + 49152
+		ip,port := stun.DiscoverExt(st.Port)
+		sig.SendMessage(Message{Type: Conninfo, To: st.Name, Data: map[string]string{
+			"port": fmt.Sprintf("%d",port),
+			"ip": ip.String(),
+		}})
+		st.State = ConNeg
+	default:
+		sig.SendMessage(Message{Type: Reset, Data: map[string]string{
+			"reason": "Invalid state: DHNeg"}})
+	}
+
 }
 
-func (st *ConState) connectedState(mes Message, tvpn TVPN) {
+func (st *ConState) connegState(mes Message,sig SigBackend, vpn VPNBackend) {
+	switch mes.Type {
+	case Conninfo:
+		ip,port := mes.IPInfo()
+		vpn.Connect(ip.String(),st.IP.String(),port,st.Port,st.Key,st.Init)
+		st.State = Connected
+	default:
+		sig.SendMessage(Message{Type: Reset, Data: map[string]string{
+			"reason": "Invalid state: DHNeg"}})
+	}
+}
+
+
+func (st *ConState) connectedState(mes Message, sig SigBackend) {
 }

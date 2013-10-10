@@ -110,3 +110,15 @@ func indexToIP(start net.IP, index int) net.IP {
 	}
 	return net.IPv4(bs[0], bs[1], bs[2], bs[3])
 }
+
+func isGreater(lhs,rhs net.IP) bool {
+	lhs4 := rhs.To4()
+	rhs4 := rhs.To4()
+	for i,_ := range lhs4 {
+		if lhs4[i] > rhs4[i] {
+			return true
+		}
+	}
+	return false
+}
+
