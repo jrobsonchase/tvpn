@@ -1,8 +1,8 @@
 package irc
 
 import (
-	"irc"
-	"tvpn"
+	"github.com/Pursuit92/irc"
+	"github.com/Pursuit92/tvpn"
 )
 
 type IRCBackend struct {

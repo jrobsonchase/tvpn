@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"tvpn"
-	"tvpn/irc"
+	"github.com/Pursuit92/tvpn"
+	"github.com/Pursuit92/tvpn/irc"
 )
 
 const friendLimit int = 256
@@ -76,7 +76,7 @@ func main() {
 		Name:       *ircNick,
 		Group:      *ircChannel,
 		Sig:  ircBackend,
-		STUNServer: *stunString,
+		Stun: *stunString,
 	}
 
 	err = tvpnInstance.Run()

@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
-	"tvpn"
-	"tvpn/irc"
+	"github.com/Pursuit92/tvpn"
+	"github.com/Pursuit92/tvpn/irc"
 )
 
 func main() {
