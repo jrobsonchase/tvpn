@@ -1,6 +1,7 @@
 package tvpn
 
 import (
+	"github.com/Pursuit92/LeveledLogger/log"
 	"encoding/base64"
 	"fmt"
 	"math/big"
@@ -25,7 +26,7 @@ const (
 	TunNeg
 	ConNeg
 	Connected
-	Error
+	DeleteMe
 )
 
 func (st *ConState) Input(mes Message, t TVPN) {
@@ -42,18 +43,33 @@ func (st *ConState) Input(mes Message, t TVPN) {
 		st.connegState(mes, t.Sig,t.VPN)
 	case Connected:
 		st.connectedState(mes, t.Sig)
+	default:
 	}
 }
 
-func newState(name string,sig SigBackend) *ConState {
-	sig.SendMessage(Message{Type: Init, To: name})
-	return &ConState{State: InitState,
-		Name: name,
-		Friend: true,
-		Init: true }
+func (st *ConState) Reset(sig SigBackend,reason string) {
+	st.State = NoneState
+	st.Params = nil
+	st.Key = nil
+	st.IP = nil
+	st.Port = 0
+	if reason != "" {
+		log.Out.Printf(3,"Conversation with %s reset. Reason: %s\n",st.Name,reason)
+	}
+	st.InitState(st.Name,st.Friend,st.Init,sig)
 }
 
-
+func (st *ConState) InitState(name string,friend,init bool,sig SigBackend) {
+	st.Name = name
+	st.Friend = friend
+	st.Init = init
+	if init {
+		sig.SendMessage(Message{Type: Init, To: name})
+		st.State = InitState
+	} else {
+		st.State = NoneState
+	}
+}
 
 // NoneState is the state in which we wait for an Init
 // Next state is DHNeg after a valid Init
@@ -75,10 +91,12 @@ func (st *ConState) noneState(mes Message, sig SigBackend) {
 			st.State = DHNeg
 		} else {
 			sig.SendMessage(Message{Type: Deny, Data: map[string]string{"reason": "Not Authorized"}})
+			st.State = DeleteMe
 		}
 	default:
 		sig.SendMessage(Message{Type: Reset, Data: map[string]string{
 			"reason": "Invalid state: None"}})
+			st.Reset(sig,"")
 	}
 }
 
@@ -101,6 +119,7 @@ func (st *ConState) initState(mes Message, sig SigBackend) {
 	default:
 		sig.SendMessage(Message{Type: Reset, Data: map[string]string{
 			"reason": "Invalid state: Init"}})
+			st.Reset(sig,"")
 	}
 }
 
@@ -112,6 +131,8 @@ func (st *ConState) dhnegState(mes Message, sig SigBackend, alloc IPManager) {
 			sig.SendMessage(Message{Type: Reset, Data: map[string]string{
 				"reason": "Invalid DH Params",
 			}})
+			st.Reset(sig,"")
+			return
 		}
 		st.Key[i] = dh.GenMutSecret(st.Params[i], dh.Params{X: x, Y: y})
 		for _, v := range st.Key {
@@ -126,6 +147,7 @@ func (st *ConState) dhnegState(mes Message, sig SigBackend, alloc IPManager) {
 	default:
 		sig.SendMessage(Message{Type: Reset, Data: map[string]string{
 			"reason": "Invalid state: DHNeg"}})
+			st.Reset(sig,"")
 
 	}
 }
@@ -141,9 +163,10 @@ func (st *ConState) tunnegState(mes Message, sig SigBackend, stun StunBackend, a
 		st.Port = rgen.Int() % (65536 - 49152) + 49152
 		ip,port,err := stun.DiscoverExt(st.Port)
 		if err != nil {
-			st.State = NoneState
 			sig.SendMessage(Message{Type: Reset, Data: map[string]string{
 				"reason": "Failed to discover external connection info"}})
+			st.Reset(sig,"")
+			return
 		}
 		sig.SendMessage(Message{Type: Conninfo, To: st.Name, Data: map[string]string{
 			"port": fmt.Sprintf("%d",port),
@@ -153,6 +176,7 @@ func (st *ConState) tunnegState(mes Message, sig SigBackend, stun StunBackend, a
 	default:
 		sig.SendMessage(Message{Type: Reset, Data: map[string]string{
 			"reason": "Invalid state: DHNeg"}})
+			st.Reset(sig,"")
 	}
 
 }
@@ -166,6 +190,7 @@ func (st *ConState) connegState(mes Message,sig SigBackend, vpn VPNBackend) {
 	default:
 		sig.SendMessage(Message{Type: Reset, Data: map[string]string{
 			"reason": "Invalid state: DHNeg"}})
+			st.Reset(sig,"")
 	}
 }
 

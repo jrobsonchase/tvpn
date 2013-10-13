@@ -45,25 +45,26 @@ func (t *TVPN) Run() error {
 		msg := t.Sig.RecvMessage()
 		switch msg.Type {
 		case Init:
-			t.States[msg.From] = &ConState{State: NoneState,
-			Name: msg.From,
-			Friend: false,
-			Init: false}
+			t.States[msg.From] = &ConState{}
+			friend := false
 			for _,v := range t.Friends {
 				if v == msg.From {
-					t.States[msg.From].Friend = true
+					friend = true
 				}
 			}
+			t.States[msg.From].InitState(msg.From,friend,false,t.Sig)
 		case Join:
 			for _,v := range t.Friends {
 				if v == msg.From {
-					t.States[msg.From] = newState(msg.From,t.Sig)
+					t.States[msg.From] = &ConState{}
+					t.States[msg.From].InitState(msg.From,true,true,t.Sig)
 				}
 			}
 
-		case Quit,Reset:
+		case Quit:
 			delete(t.States,msg.From)
-			// need more cleanup here
+		case Reset:
+			t.States[msg.From].Reset(t.Sig,msg.Data["reason"])
 		default:
 			for i,v := range t.States {
 				if i == msg.From {
