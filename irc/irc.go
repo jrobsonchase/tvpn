@@ -5,6 +5,10 @@ import (
 	"github.com/Pursuit92/tvpn"
 )
 
+func SetLogLevel(n int) {
+	irc.SetLogLevel(n)
+}
+
 type IRCBackend struct {
 	Conn        *irc.Conn
 	MsgExpector irc.Expector

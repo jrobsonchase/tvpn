@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"github.com/Pursuit92/tvpn"
+	"github.com/Pursuit92/tvpn/stun"
 	"github.com/Pursuit92/tvpn/irc"
 )
 
@@ -26,6 +27,7 @@ func main() {
 	//ircPass := flag.String("pass", "", "Optional password for IRC connection")
 	//ircIdent := flag.String("identify", "", "Optional password for NickServ identification")
 	stunString := flag.String("stun", "", "STUN server info")
+	debugLevel := flag.Int("d",1,"Debugging level. Set to 1 by default")
 	flag.Parse()
 
 	var friends []string
@@ -61,6 +63,26 @@ func main() {
 		exitError("You must specify a STUN server with -stun")
 	}
 
+	switch *debugLevel {
+	case 0,1:
+	case 2:
+		irc.SetLogLevel(2)
+		tvpn.SetLogLevel(2)
+	case 3:
+		stun.SetLogLevel(2)
+		irc.SetLogLevel(2)
+		tvpn.SetLogLevel(2)
+	case 4:
+		stun.SetLogLevel(2)
+		irc.SetLogLevel(2)
+		tvpn.SetLogLevel(3)
+	case 5:
+		stun.SetLogLevel(3)
+		irc.SetLogLevel(3)
+		tvpn.SetLogLevel(3)
+	default:
+	}
+
 	fmt.Printf("Loaded friends:\n")
 	for _, v := range friends {
 		fmt.Println(v)
@@ -76,7 +98,7 @@ func main() {
 		Name:       *ircNick,
 		Group:      *ircChannel,
 		Sig:  ircBackend,
-		Stun: *stunString,
+		Stun: stun.StunBackend{*stunString},
 	}
 
 	err = tvpnInstance.Run()

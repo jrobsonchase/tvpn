@@ -3,7 +3,7 @@ package stun
 import (
 	"encoding/binary"
 	"net"
-	"log"
+	"github.com/Pursuit92/LeveledLogger/log"
 )
 
 type StunErr string
@@ -13,11 +13,11 @@ func (s StunErr) Error() string {
 }
 
 type StunBackend struct {
-	server string
+	Server string
 }
 
 func (b StunBackend) DiscoverExt(port int) (net.IP,int,error) {
-	uadd := DiscoverExternal(port,b.server)
+	uadd := DiscoverExternal(port,b.Server)
 	if uadd == nil {
 		return nil,0,StunErr("Failed to get external address!")
 	}
@@ -31,31 +31,31 @@ func DiscoverExternal(port int, addr string) (*net.UDPAddr) {
 	laddr := &net.UDPAddr{Port: port}
 	helper,err := net.ResolveUDPAddr(rem,addr)
 	if err != nil {
-		log.Printf("Failed to resolve UDP: %s",err)
+		log.Out.Printf(2,"Failed to resolve UDP: %s",err)
 		return nil
 	}
 	conn, err := net.DialUDP(rem, laddr, helper)
 	if err != nil {
-		log.Printf("Failed to bind UDP: %s",err)
+		log.Out.Printf(2,"Failed to bind UDP: %s",err)
 		return nil
 	}
 
 	// send the request for info
 	n, err := conn.Write([]byte{Req})
 	if err != nil {
-		log.Printf("Failed to send request: %s",err)
+		log.Out.Printf(2,"Failed to send request: %s",err)
 		return nil
 	}
-	log.Printf("Wrote %d bytes to %s",n,rem)
+	log.Out.Printf(3,"Wrote %d bytes to %s",n,rem)
 
 	// server response - 1 byte for type, 4 for the port, and 16 for the IP
 	resp := make([]byte, 25)
 	n, err = conn.Read(resp)
 	if err != nil {
-		log.Printf("Failed to read response: %s",err)
+		log.Out.Printf(2,"Failed to read response: %s",err)
 		return nil
 	}
-	log.Printf("Read %d bytes from %s",n,rem)
+	log.Out.Printf(3,"Read %d bytes from %s",n,rem)
 
 	// slice out the port bytes
 	portBytes := resp[1:9]
@@ -71,7 +71,7 @@ func DiscoverExternal(port int, addr string) (*net.UDPAddr) {
 	// convert the port bytes to int64
 	extPort,n := binary.Varint(portBytes)
 	if n == 0 {
-		log.Print("Failed to read integer from portBytes")
+		log.Out.Print(2,"Failed to read integer from portBytes")
 		return nil
 	}
 
@@ -79,6 +79,11 @@ func DiscoverExternal(port int, addr string) (*net.UDPAddr) {
 
 }
 
+func SetLogLevel(n int) {
+	log.Out.SetLevel(n)
+}
 
-
-
+func SetLogPrefix(s string) {
+	log.Out.SetPrefix(2,s)
+	log.Out.SetPrefix(3,s)
+}

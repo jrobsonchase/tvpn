@@ -1,6 +1,7 @@
 package tvpn
 
 import (
+	"github.com/Pursuit92/LeveledLogger/log"
 	"math/rand"
 	"time"
 )
@@ -20,6 +21,16 @@ func init() {
 	rgen = rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
+func SetLogLevel(n int) {
+	log.Out.SetLevel(n)
+}
+
+func SetLogPrefix(s string) {
+	for i := 0; i < 10; i++ {
+		log.Out.SetPrefix(i,s)
+	}
+}
+
 func New(name, group string,
 	friends []string,
 	sig SigBackend,
@@ -29,7 +40,7 @@ func New(name, group string,
 	return nil
 }
 
-func (t *TVPN) Run() {
+func (t *TVPN) Run() error {
 	for {
 		msg := t.Sig.RecvMessage()
 		switch msg.Type {

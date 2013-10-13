@@ -38,6 +38,8 @@ func (st *ConState) Input(mes Message, t TVPN) {
 		st.dhnegState(mes, t.Sig, t.Alloc)
 	case TunNeg:
 		st.tunnegState(mes, t.Sig,t.Stun, t.Alloc)
+	case ConNeg:
+		st.connegState(mes, t.Sig,t.VPN)
 	case Connected:
 		st.connectedState(mes, t.Sig)
 	}
@@ -137,7 +139,12 @@ func (st *ConState) tunnegState(mes Message, sig SigBackend, stun StunBackend, a
 			st.IP = ip
 		}
 		st.Port = rgen.Int() % (65536 - 49152) + 49152
-		ip,port := stun.DiscoverExt(st.Port)
+		ip,port,err := stun.DiscoverExt(st.Port)
+		if err != nil {
+			st.State = NoneState
+			sig.SendMessage(Message{Type: Reset, Data: map[string]string{
+				"reason": "Failed to discover external connection info"}})
+		}
 		sig.SendMessage(Message{Type: Conninfo, To: st.Name, Data: map[string]string{
 			"port": fmt.Sprintf("%d",port),
 			"ip": ip.String(),
