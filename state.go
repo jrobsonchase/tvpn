@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"tvpn/dh"
+	"github.com/Pursuit92/tvpn/dh"
 )
 
 type ConState struct {

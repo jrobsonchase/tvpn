@@ -4,6 +4,7 @@ import (
 	"github.com/Pursuit92/LeveledLogger/log"
 	"math/rand"
 	"time"
+	"fmt"
 )
 
 type TVPN struct {
@@ -54,12 +55,16 @@ func (t *TVPN) Run() error {
 			}
 			t.States[msg.From].InitState(msg.From,friend,false,t.Sig)
 		case Join:
+			fmt.Printf("Received Join from %s!\n",msg.From)
 			for _,v := range t.Friends {
+				fmt.Printf("%s == %s ?\n",msg.From,v)
 				if v == msg.From {
+					fmt.Printf("It's a friend!\n")
 					t.States[msg.From] = &ConState{}
 					t.States[msg.From].InitState(msg.From,true,true,t.Sig)
 				}
 			}
+			fmt.Println("Done with join!")
 
 		case Quit:
 			delete(t.States,msg.From)

@@ -80,6 +80,10 @@ func main() {
 		stun.SetLogLevel(3)
 		irc.SetLogLevel(3)
 		tvpn.SetLogLevel(3)
+	case 6,7,8,9,10:
+		stun.SetLogLevel(10)
+		irc.SetLogLevel(10)
+		tvpn.SetLogLevel(10)
 	default:
 	}
 
@@ -99,6 +103,7 @@ func main() {
 		Group:      *ircChannel,
 		Sig:  ircBackend,
 		Stun: stun.StunBackend{*stunString},
+		Friends: friends,
 	}
 
 	err = tvpnInstance.Run()

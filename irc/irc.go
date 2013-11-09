@@ -52,8 +52,8 @@ func Connect(host, nick, group string) (*IRCBackend, error) {
 		return nil, err
 	}
 
-	users := chann.GetUsers()
-	go makeJoin(users, status)
+	//users := chann.GetUsers()
+	//go makeJoin(users, status)
 
 	return &IRCBackend{Conn: conn, Messages: msgs.Chan, Status: status}, nil
 }
