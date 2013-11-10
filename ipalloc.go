@@ -17,10 +17,11 @@ type IPManager struct {
 	Tuns  int
 }
 
-func NewIPManager(min net.IP, numTun int) *IPManager {
+func NewIPManager(minS string, numTun int) IPManager {
+	min := net.ParseIP(minS)
 	reqs := make(chan IPReq)
 	go ipAllocator(reqs, min, numTun)
-	return &IPManager{reqs, min, numTun}
+	return IPManager{reqs, min, numTun}
 }
 
 func (ipman IPManager) RequestAny() net.IP {

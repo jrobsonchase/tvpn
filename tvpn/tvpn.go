@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"github.com/Pursuit92/tvpn"
+	"github.com/Pursuit92/tvpn/ovpn"
 	"github.com/Pursuit92/tvpn/stun"
 	"github.com/Pursuit92/tvpn/irc"
 )
@@ -98,13 +99,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	tvpnInstance := tvpn.TVPN{
-		Name:       *ircNick,
-		Group:      *ircChannel,
-		Sig:  ircBackend,
-		Stun: stun.StunBackend{*stunString},
-		Friends: friends,
-	}
+	tvpnInstance := tvpn.New(
+		*ircNick,
+		*ircChannel,
+		friends,
+		ircBackend,
+		stun.StunBackend{*stunString},
+		ovpn.New(),
+		tvpn.NewIPManager("3.0.0.0",256))
 
 	err = tvpnInstance.Run()
 

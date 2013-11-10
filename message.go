@@ -109,7 +109,7 @@ func (m Message) String() string {
 	case Accept:
 		return "ACCEPT"
 	case Dhpub:
-		return fmt.Sprintf("DHPUB %s %s %s", m.Data["x"], m.Data["y"])
+		return fmt.Sprintf("DHPUB %s %s %s", m.Data["i"], m.Data["x"], m.Data["y"])
 	case Tunnip:
 		return fmt.Sprintf("TUNNIP %s", m.Data["ip"])
 	case Conninfo:
@@ -130,7 +130,8 @@ func (m Message) DhParams() (*big.Int, *big.Int, int, error) {
 		if err != nil {
 			return nil, nil, 0, err
 		}
-		var x, y *big.Int
+		x := &big.Int{}
+		y := &big.Int{}
 		x.SetBytes(xBytes)
 		y.SetBytes(yBytes)
 		i, _ := strconv.Atoi(m.Data["i"])

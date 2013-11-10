@@ -1,6 +1,7 @@
 package irc
 
 import (
+	"fmt"
 	"github.com/Pursuit92/irc"
 	"github.com/Pursuit92/tvpn"
 )
@@ -47,7 +48,7 @@ func Connect(host, nick, group string) (*IRCBackend, error) {
 		}
 	}()
 
-	msgs, err := irc.Expect(conn, irc.Command{"", "PRIVMSG", []string{nick}})
+	msgs, err := irc.Expect(conn, irc.Command{"", "PRIVMSG", []string{nick,".*"}})
 	if err != nil {
 		return nil, err
 	}
@@ -73,6 +74,8 @@ func (b IRCBackend) RecvMessage() tvpn.Message {
 			if err == nil {
 				msg.From = ircMsg.Nick
 				return *msg
+			} else {
+				fmt.Printf("Failed to parse message!")
 			}
 		case input := <-b.Status:
 			switch input.Command {

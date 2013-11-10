@@ -36,24 +36,40 @@ func New(name, group string,
 	friends []string,
 	sig SigBackend,
 	stun StunBackend,
-	vpn VPNBackend) *TVPN {
+	vpn VPNBackend, alloc IPManager) *TVPN {
 
-	return nil
+	tvpnInstance := TVPN{
+		Name:       name,
+		Group:      group,
+		Sig:  sig,
+		Stun: stun,
+		Friends: friends,
+		VPN: vpn,
+		Alloc: alloc,
+	}
+	tvpnInstance.States = make(map[string]*ConState)
+
+	return &tvpnInstance
 }
 
 func (t *TVPN) Run() error {
 	for {
+		fmt.Printf("Waiting for message...\n")
 		msg := t.Sig.RecvMessage()
+		fmt.Printf("Got a message: %s\n",msg.String())
 		switch msg.Type {
 		case Init:
+			fmt.Printf("Creating new state machine for %s\n",msg.From)
 			t.States[msg.From] = &ConState{}
 			friend := false
 			for _,v := range t.Friends {
 				if v == msg.From {
+					fmt.Printf("It's a friend!\n")
 					friend = true
 				}
 			}
 			t.States[msg.From].InitState(msg.From,friend,false,t.Sig)
+			t.States[msg.From].Input(msg,*t)
 		case Join:
 			fmt.Printf("Received Join from %s!\n",msg.From)
 			for _,v := range t.Friends {

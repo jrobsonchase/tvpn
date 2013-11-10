@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"github.com/Pursuit92/tvpn"
 )
 
 type OVPNBackend struct {
@@ -32,7 +33,7 @@ type OVPNConn struct {
 	Cmd *exec.Cmd
 }
 
-func New() OVPNBackend {
+func New() *OVPNBackend {
 	var ovpnpath string
 	var tmp string
 	if runtime.GOOS == "windows" {
@@ -42,13 +43,13 @@ func New() OVPNBackend {
 		tmp = "/tmp/"
 		ovpnpath = "/usr/bin/openvpn"
 	}
-	return OVPNBackend{ovpnpath,tmp}
+	return &OVPNBackend{ovpnpath,tmp}
 }
 
 func (ovpn *OVPNBackend) Connect(remoteip,localtun string,
 	remoteport,localport int,
 	key []*big.Int,
-	dir bool) (*OVPNConn,error) {
+	dir bool) (tvpn.VPNConn,error) {
 
 	var dirS string
 	if dir {
@@ -69,21 +70,24 @@ func (ovpn *OVPNBackend) Connect(remoteip,localtun string,
 	keyhandle.Close()
 
 
-	cmd := exec.Command(ovpn.path,
-		append(ovpnOpts,
+	opts := append(ovpnOpts,
 			"--remote", remoteip,
 			"--rport", fmt.Sprintf("%d",remoteport),
 			"--lport", fmt.Sprintf("%d",localport),
 			"--secret", keyfile, dirS,
-			"--ifconfig", localtun, "255.255.255.252")...)
+			"--ifconfig", localtun, "255.255.255.252")
 
-	e := cmd.Run()
+	cmd := exec.Command(ovpn.path, opts...)
+
+
+	fmt.Printf("Running command: %s %s\n",ovpn.path, opts)
+	e := cmd.Start()
 
 	if e != nil {
 		log.Fatal(e.Error())
 	}
 
-	logFile, err := os.OpenFile(fmt.Sprintf("%s%s.err",ovpn.tmp,remoteip), os.O_APPEND, 0666)
+	logFile, err := os.OpenFile(fmt.Sprintf("%s%s.log",ovpn.tmp,remoteip), os.O_APPEND, 0666)
 	if err != nil {
 		return nil,err
 	}
@@ -94,7 +98,6 @@ func (ovpn *OVPNBackend) Connect(remoteip,localtun string,
 
 	go io.Copy(cmd.Stdout, logFile)
 	go io.Copy(cmd.Stderr, errFile)
-
 
 	return &OVPNConn{cmd},nil
 }
