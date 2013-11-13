@@ -39,6 +39,7 @@ func DiscoverExternal(port int, addr string) (*net.UDPAddr) {
 		log.Out.Printf(2,"Failed to bind UDP: %s",err)
 		return nil
 	}
+	defer conn.Close()
 
 	// send the request for info
 	n, err := conn.Write([]byte{Req})
@@ -74,6 +75,7 @@ func DiscoverExternal(port int, addr string) (*net.UDPAddr) {
 		log.Out.Print(2,"Failed to read integer from portBytes")
 		return nil
 	}
+
 
 	return &net.UDPAddr{ IP: ipBytes, Port: int(extPort) }
 

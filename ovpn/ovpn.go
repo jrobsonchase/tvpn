@@ -59,13 +59,15 @@ func (ovpn *OVPNBackend) Connect(remoteip,localtun string,
 	}
 
 	keyfile := fmt.Sprintf("%s%s.key",ovpn.tmp,remoteip)
-	keyhandle,err := os.Create(keyfile)
-	if err != nil {
-		return nil,err
+	keyhandle,e := os.Create(keyfile)
+	if e != nil {
+		log.Fatal(e)
+		return nil,e
 	}
-	_,err = keyhandle.Write(EncodeOpenVPNKey(key))
-	if err != nil {
-		return nil,err
+	_,e = keyhandle.Write(EncodeOpenVPNKey(key))
+	if e != nil {
+		log.Fatal(e)
+		return nil,e
 	}
 	keyhandle.Close()
 
@@ -80,25 +82,44 @@ func (ovpn *OVPNBackend) Connect(remoteip,localtun string,
 	cmd := exec.Command(ovpn.path, opts...)
 
 
-	fmt.Printf("Running command: %s %s\n",ovpn.path, opts)
-	e := cmd.Start()
+	fmt.Printf("Running command: %s ",cmd.Path)
+	for _,v := range cmd.Args {
+		fmt.Printf("%s ",v)
+	}
+	fmt.Print("\n")
+	out,e := cmd.StdoutPipe()
 
 	if e != nil {
-		log.Fatal(e.Error())
+		log.Fatal(e)
+	}
+	err,e := cmd.StderrPipe()
+
+	if e != nil {
+		log.Fatal(e)
+	}
+	e = cmd.Start()
+	if e != nil {
+		log.Fatal(e)
 	}
 
-	logFile, err := os.OpenFile(fmt.Sprintf("%s%s.log",ovpn.tmp,remoteip), os.O_APPEND, 0666)
-	if err != nil {
-		return nil,err
-	}
-	errFile, err := os.OpenFile(fmt.Sprintf("%s%s.err",ovpn.tmp,remoteip), os.O_APPEND, 0666)
-	if err != nil {
-		return nil,err
-	}
 
-	go io.Copy(cmd.Stdout, logFile)
-	go io.Copy(cmd.Stderr, errFile)
+	/*
+	logFile, e := os.Create(fmt.Sprintf("%s%s.log",ovpn.tmp,remoteip))
+	if e != nil {
+		log.Fatal(e)
+		return nil,e
+	}
+	errFile, e := os.Create(fmt.Sprintf("%s%s.err",ovpn.tmp,remoteip))
+	if e != nil {
+		log.Fatal(e)
+		return nil,e
+	}
+	*/
 
+	go io.Copy(os.Stdout,out)
+	go io.Copy(os.Stderr,err)
+
+	log.Printf("\nVPN Connected with pid %d\n",cmd.Process.Pid)
 	return &OVPNConn{cmd},nil
 }
 

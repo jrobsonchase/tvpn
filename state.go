@@ -207,12 +207,12 @@ func (st *ConState) connegState(mes Message,sig SigBackend, vpn VPNBackend) {
 			tunIP[len(tunIP)-1] += 2
 		}
 		conn, err := vpn.Connect(ip.String(),tunIP.String(),port,st.Port,st.Key,st.Init)
-		if err != nil {
+		if err == nil {
 			fmt.Printf("VPN Connected!\n")
 			st.Conn = conn
 			st.State = Connected
 		} else {
-			fmt.Printf("Error connecting VPN\n")
+			fmt.Printf("Error connecting VPN: %s\n",err.Error())
 		}
 
 	default:
