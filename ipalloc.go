@@ -1,6 +1,7 @@
 package tvpn
 
 import (
+	"fmt"
 	"math"
 	"net"
 )
@@ -32,10 +33,13 @@ func (ipman IPManager) RequestAny() net.IP {
 }
 
 func (ipman IPManager) Request(ip net.IP) net.IP {
+	fmt.Println("Attempting to allocate ",ip)
 	resp := make(chan net.IP)
 	req := IPReq{Req: true, IP: ip, Resp: resp}
 	ipman.reqs <- req
-	return <-resp
+	ret := <-resp
+	fmt.Println("Returning ",ret)
+	return ret
 }
 
 func (ipman IPManager) Release(ip net.IP) net.IP {
@@ -53,6 +57,7 @@ func ipAllocator(ipReqs chan IPReq, min net.IP, n int) {
 		if req.Req {
 			// is it a request for any ip or a specific one?
 			if req.IP == nil {
+				fmt.Println("Got request for first available!")
 				// any case, pick the first unallocated
 				for i, v := range allocList {
 					if !v {
@@ -62,14 +67,17 @@ func ipAllocator(ipReqs chan IPReq, min net.IP, n int) {
 					}
 				}
 			} else {
+				fmt.Println("Attempting to allocate ",req.IP)
 				// specific: if the requested isn't available, pick the next
 				i := ipToIndex(min, req.IP)
 				if !allocList[i] {
+					fmt.Println("Allocated ",indexToIP(min,i))
 					req.Resp <- indexToIP(min, i)
 					allocList[i] = true
 				} else {
 					for j := i; j < len(allocList); j++ {
 						if !allocList[j] {
+							fmt.Println("Allocated ",indexToIP(min,j))
 							req.Resp <- indexToIP(min, j)
 							allocList[j] = true
 							break
@@ -113,7 +121,7 @@ func indexToIP(start net.IP, index int) net.IP {
 }
 
 func isGreater(lhs,rhs net.IP) bool {
-	lhs4 := rhs.To4()
+	lhs4 := lhs.To4()
 	rhs4 := rhs.To4()
 	for i,_ := range lhs4 {
 		if lhs4[i] > rhs4[i] {
@@ -123,3 +131,15 @@ func isGreater(lhs,rhs net.IP) bool {
 	return false
 }
 
+func isEqual(lhs,rhs net.IP) bool {
+	fmt.Println("Checking IP equality: ",lhs," == ",rhs,"?")
+	lhs4 := lhs.To4()
+	rhs4 := rhs.To4()
+	for i,_ := range lhs4 {
+		fmt.Println("Testing ",lhs4[i]," and ",rhs4[i])
+		if lhs4[i] != rhs4[i] {
+			return false
+		}
+	}
+	return true
+}

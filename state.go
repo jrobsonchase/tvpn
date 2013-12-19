@@ -170,9 +170,14 @@ func (st *ConState) tunnegState(mes Message, sig SigBackend, stun StunBackend, a
 	switch mes.Type {
 	case Tunnip:
 		ip,_ := mes.IPInfo()
-		if isGreater(ip,st.IP) {
-			alloc.Release(st.IP)
-			st.IP = alloc.Request(ip)
+		if ! isEqual(ip,st.IP) {
+			fmt.Printf("IP's not equal!\n")
+			if isGreater(ip,st.IP) {
+				alloc.Release(st.IP)
+				st.IP = alloc.Request(ip)
+			}
+			sig.SendMessage(Message{Type: Tunnip, To: st.Name, Data: map[string]string{"ip": st.IP.String()}})
+			return
 		}
 		st.Port = rgen.Int() % (65536 - 49152) + 49152
 		ip,port,err := stun.DiscoverExt(st.Port)
