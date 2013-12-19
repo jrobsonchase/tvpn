@@ -20,14 +20,14 @@ func exitError(s string) {
 }
 
 func main() {
-	friendFile := flag.String("friends", "", "File containing friends. One per line")
+	friendFile := flag.String("friends", "friends.txt", "File containing friends. One per line")
 	ircChannel := flag.String("group", "", "Connection group to join. Ensures that you get updates on your friends' presence")
 	ircString := flag.String("irc", "irc.freenode.net:6667", "IRC server info")
 	//ircConn := flag.Bool("tls", false, "Use TLS for IRC connection? (unimplemented)")
 	ircNick := flag.String("name", "", "Name to use when connecting to the IRC server")
 	//ircPass := flag.String("pass", "", "Optional password for IRC connection")
 	//ircIdent := flag.String("identify", "", "Optional password for NickServ identification")
-	stunString := flag.String("stun", "", "STUN server info")
+	stunString := flag.String("stun", "stun.stunprotocol.org:3478", "STUN server info")
 	debugLevel := flag.Int("d",1,"Debugging level. Set to 1 by default")
 	flag.Parse()
 

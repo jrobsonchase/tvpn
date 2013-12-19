@@ -1,8 +1,9 @@
 package stun
 
 import (
-	"encoding/binary"
 	"net"
+	"fmt"
+	s "github.com/Pursuit92/stun"
 	"github.com/Pursuit92/LeveledLogger/log"
 )
 
@@ -25,60 +26,25 @@ func (b StunBackend) DiscoverExt(port int) (net.IP,int,error) {
 }
 
 func DiscoverExternal(port int, addr string) (*net.UDPAddr) {
+	message := s.NewMessage()
 
-	// Make the initial connection to the helper server
-	rem := "udp"
-	laddr := &net.UDPAddr{Port: port}
-	helper,err := net.ResolveUDPAddr(rem,addr)
-	if err != nil {
-		log.Out.Printf(2,"Failed to resolve UDP: %s",err)
-		return nil
-	}
-	conn, err := net.DialUDP(rem, laddr, helper)
-	if err != nil {
-		log.Out.Printf(2,"Failed to bind UDP: %s",err)
-		return nil
-	}
-	defer conn.Close()
+	message.Class = s.Request
+	message.Method = s.Binding
 
-	// send the request for info
-	n, err := conn.Write([]byte{Req})
-	if err != nil {
-		log.Out.Printf(2,"Failed to send request: %s",err)
-		return nil
-	}
-	log.Out.Printf(3,"Wrote %d bytes to %s",n,rem)
+	message.AddAttribute(s.MappedAddress("0.0.0.0",port))
 
-	// server response - 1 byte for type, 4 for the port, and 16 for the IP
-	resp := make([]byte, 25)
-	n, err = conn.Read(resp)
-	if err != nil {
-		log.Out.Printf(2,"Failed to read response: %s",err)
-		return nil
-	}
-	log.Out.Printf(3,"Read %d bytes from %s",n,rem)
+	resp := s.SendMessage(message,fmt.Sprintf("0.0.0.0:%d",port),addr)
 
-	// slice out the port bytes
-	portBytes := resp[1:9]
-
-	// test for ipv6 based on number of bytes sent and slice the ip bytes
-	var ipBytes []byte
-	if n > 10 {
-		ipBytes = resp[9:]
-	} else {
-		ipBytes = resp[9:13]
+	for _,v := range resp.Attrs {
+		if v.Type == s.MappedAddressCode {
+			ma,ok := v.Attr.(s.MappedAddressAttr)
+			if ok {
+				return &net.UDPAddr{ IP: ma.Address, Port: ma.Port }
+			}
+		}
 	}
 
-	// convert the port bytes to int64
-	extPort,n := binary.Varint(portBytes)
-	if n == 0 {
-		log.Out.Print(2,"Failed to read integer from portBytes")
-		return nil
-	}
-
-
-	return &net.UDPAddr{ IP: ipBytes, Port: int(extPort) }
-
+	return nil
 }
 
 func SetLogLevel(n int) {
