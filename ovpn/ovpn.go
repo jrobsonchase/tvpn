@@ -56,8 +56,9 @@ func New() *OVPNBackend {
 	var ovpnpath string
 	var tmp string
 	if runtime.GOOS == "windows" {
-		tmp = "%TEMP%\\"
-		ovpnpath = "ovpn/openvpn.exe"
+		//tmp = "%TEMP%\\"
+		tmp = os.ExpandEnv("${TEMP}\\")
+		ovpnpath = `C:\Program Files (x86)\OpenVPN\bin\openvpn.exe`
 	} else {
 		tmp = "/tmp/"
 		ovpnpath = "/usr/bin/openvpn"
@@ -77,7 +78,7 @@ func (ovpn *OVPNBackend) Connect(remoteip,localtun string,
 		dirS = "0"
 	}
 
-	keyfile := fmt.Sprintf("%s%s.key",ovpn.tmp,remoteip)
+	keyfile := fmt.Sprintf("%s%s-%d.key",ovpn.tmp,remoteip,remoteport)
 	keyhandle,e := os.Create(keyfile)
 	if e != nil {
 		log.Fatal(e)
