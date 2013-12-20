@@ -52,6 +52,16 @@ func New(name, group string,
 	return &tvpnInstance
 }
 
+func (t TVPN) IsFriend(name string) bool {
+	for _,v := range t.Friends {
+		if v == name {
+			return true
+		}
+	}
+	return false
+}
+
+
 func (t *TVPN) Run() error {
 	for {
 		fmt.Printf("Waiting for message...\n")
@@ -59,38 +69,31 @@ func (t *TVPN) Run() error {
 		fmt.Printf("Got a message: %s\n",msg.String())
 		switch msg.Type {
 		case Init:
+			friend := t.IsFriend(msg.From)
 			fmt.Printf("Creating new state machine for %s\n",msg.From)
-			t.States[msg.From] = &ConState{}
-			friend := false
-			for _,v := range t.Friends {
-				if v == msg.From {
-					fmt.Printf("It's a friend!\n")
-					friend = true
-				}
-			}
-			t.States[msg.From].InitState(msg.From,friend,false,t.Sig)
+			t.States[msg.From] = NewState(msg.From,friend,false,*t)
 			t.States[msg.From].Input(msg,*t)
 		case Join:
 			fmt.Printf("Received Join from %s!\n",msg.From)
-			for _,v := range t.Friends {
-				fmt.Printf("%s == %s ?\n",msg.From,v)
-				if v == msg.From {
-					fmt.Printf("It's a friend!\n")
-					t.States[msg.From] = &ConState{}
-					t.States[msg.From].InitState(msg.From,true,true,t.Sig)
-				}
+			if t.IsFriend(msg.From) {
+				t.States[msg.From] = NewState(msg.From,true,true,*t)
 			}
 			fmt.Println("Done with join!")
 
 		case Quit:
-			delete(t.States,msg.From)
+			st,exists := t.States[msg.From]
+			if exists {
+				st.Cleanup(*t)
+				delete(t.States,msg.From)
+			}
 		case Reset:
-			t.States[msg.From].Reset(t.Sig,msg.Data["reason"])
+			t.States[msg.From].Reset(msg.Data["reason"],*t)
 		default:
-			for i,v := range t.States {
-				if i == msg.From {
-					v.Input(msg,*t)
-				}
+			st,exists := t.States[msg.From]
+			if exists {
+				st.Input(msg,*t)
+			} else {
+				// do stuff here
 			}
 		}
 	}
