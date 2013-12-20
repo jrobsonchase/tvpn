@@ -130,16 +130,3 @@ func isGreater(lhs,rhs net.IP) bool {
 	}
 	return false
 }
-
-func isEqual(lhs,rhs net.IP) bool {
-	fmt.Println("Checking IP equality: ",lhs," == ",rhs,"?")
-	lhs4 := lhs.To4()
-	rhs4 := rhs.To4()
-	for i,_ := range lhs4 {
-		fmt.Println("Testing ",lhs4[i]," and ",rhs4[i])
-		if lhs4[i] != rhs4[i] {
-			return false
-		}
-	}
-	return true
-}

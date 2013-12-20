@@ -168,7 +168,7 @@ func (st *ConState) tunnegState(mes Message, t TVPN) {
 	switch mes.Type {
 	case Tunnip:
 		ip,_ := mes.IPInfo()
-		if ! isEqual(ip,st.IP) {
+		if ! ip.Equal(st.IP) {
 			fmt.Printf("IP's not equal!\n")
 			if isGreater(ip,st.IP) {
 				t.Alloc.Release(st.IP)
