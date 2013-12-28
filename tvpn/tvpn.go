@@ -20,11 +20,9 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 	"github.com/Pursuit92/tvpn"
 	"github.com/Pursuit92/tvpn/ovpn"
 	"github.com/Pursuit92/tvpn/stun"
@@ -39,48 +37,22 @@ func exitError(s string) {
 }
 
 func main() {
-	friendFile := flag.String("friends", "friends.txt", "File containing friends. One per line")
-	ircChannel := flag.String("group", "", "Connection group to join. Ensures that you get updates on your friends' presence")
-	ircString := flag.String("irc", "irc.freenode.net:6667", "IRC server info")
-	//ircConn := flag.Bool("tls", false, "Use TLS for IRC connection? (unimplemented)")
-	ircNick := flag.String("name", "", "Name to use when connecting to the IRC server")
-	//ircPass := flag.String("pass", "", "Optional password for IRC connection")
-	//ircIdent := flag.String("identify", "", "Optional password for NickServ identification")
-	stunString := flag.String("stun", "stun.stunprotocol.org:3478", "STUN server info")
 	debugLevel := flag.Int("d",1,"Debugging level. Set to 1 by default")
+	configPath := flag.String("config","tvpn.config","JSON Configuration file")
 	flag.Parse()
 
-	var friends []string
-
-	if *friendFile != "" {
-		file, err := os.Open(*friendFile)
-		if err != nil {
-			fmt.Printf("Error openfing file: %s\n", err)
-			os.Exit(1)
-		}
-		scanner := bufio.NewScanner(file)
-		friends = make([]string, friendLimit)
-		var i int
-		for scanner.Scan() {
-			friends[i] = strings.Trim(scanner.Text(), "\t \n")
-			i++
-		}
-		friends = friends[:i]
-
-	} else {
-		exitError("You must specify a friends file with -friends")
+	conf,err := tvpn.ReadConfig(*configPath)
+	if err != nil {
+		println(err)
+		os.Exit(-1)
 	}
 
-	if *ircChannel == "" {
-		exitError("You must specify a group to join with -group")
-	}
 
-	if *ircNick == "" {
-		exitError("You must specify an IRC name with -name")
-	}
-
-	if *stunString == "" {
-		exitError("You must specify a STUN server with -stun")
+	friends := make([]string,len(conf.Friends))
+	i := 0
+	for f,_ := range conf.Friends {
+		friends[i] = f
+		i++
 	}
 
 	switch *debugLevel {
@@ -112,20 +84,32 @@ func main() {
 		fmt.Println(v)
 	}
 
-	ircBackend, err := irc.Connect(*ircString, *ircNick, *ircChannel)
+	conf.Sig["Group"] = conf.Group
+	conf.Sig["Name"] = conf.Name
+
+	ipman := new(tvpn.IPManager)
+	stunman := new(stun.StunBackend)
+	vpnman := new(ovpn.OVPNBackend)
+	ircman := new(irc.IRCBackend)
+
+	ipman.Configure(conf.IPMan)
+	stunman.Configure(conf.Stun)
+	vpnman.Configure(conf.VPN)
+	err = ircman.Configure(conf.Sig)
+
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
 	tvpnInstance := tvpn.New(
-		*ircNick,
-		*ircChannel,
+		conf.Name,
+		conf.Group,
 		friends,
-		ircBackend,
-		stun.StunBackend{*stunString},
-		ovpn.New(),
-		tvpn.NewIPManager("3.0.0.0",256))
+		ircman,
+		stunman,
+		vpnman,
+		ipman)
 
 	err = tvpnInstance.Run()
 

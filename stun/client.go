@@ -23,6 +23,7 @@ import (
 	"net"
 	"fmt"
 	s "github.com/Pursuit92/stun"
+	"github.com/Pursuit92/tvpn"
 	"github.com/Pursuit92/LeveledLogger/log"
 )
 
@@ -34,6 +35,10 @@ func (s StunErr) Error() string {
 
 type StunBackend struct {
 	Server string
+}
+
+func (b *StunBackend) Configure(conf tvpn.StunConfig) {
+	b.Server = conf["Server"]
 }
 
 func (b StunBackend) DiscoverExt(port int) (net.IP,int,error) {

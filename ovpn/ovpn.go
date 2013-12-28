@@ -66,6 +66,11 @@ func New() *OVPNBackend {
 	return &OVPNBackend{ovpnpath,tmp}
 }
 
+func (ovpn *OVPNBackend) Configure(conf tvpn.VPNConfig) {
+	ovpn.tmp = conf["Tmp"]
+	ovpn.path = conf["Path"]
+}
+
 func (ovpn *OVPNBackend) Connect(remoteip,localtun string,
 	remoteport,localport int,
 	key []*big.Int,

@@ -29,3 +29,5 @@ type VPNConn interface {
 	Disconnect()
 	Status() int
 }
+
+type VPNConfig map[string]string

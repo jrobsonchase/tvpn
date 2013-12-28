@@ -26,14 +26,17 @@ import (
 	"fmt"
 )
 
+type Friend struct {
+	Validate bool
+}
+
 type TVPN struct {
-	Name, Group string
 	Friends     []string
 	Sig         SigBackend
 	Stun        StunBackend
 	VPN			VPNBackend
 	States      map[string]*ConState
-	Alloc		IPManager
+	Alloc		*IPManager
 }
 
 var rgen *rand.Rand
@@ -55,11 +58,9 @@ func New(name, group string,
 	friends []string,
 	sig SigBackend,
 	stun StunBackend,
-	vpn VPNBackend, alloc IPManager) *TVPN {
+	vpn VPNBackend, alloc *IPManager) *TVPN {
 
 	tvpnInstance := TVPN{
-		Name:       name,
-		Group:      group,
 		Sig:  sig,
 		Stun: stun,
 		Friends: friends,

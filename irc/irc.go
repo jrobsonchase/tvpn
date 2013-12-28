@@ -30,6 +30,7 @@ func SetLogLevel(n int) {
 }
 
 type IRCBackend struct {
+	Nick,Chan,Server string
 	Conn        *irc.Conn
 	MsgExpector irc.Expector
 	Messages    chan irc.Command
@@ -37,19 +38,23 @@ type IRCBackend struct {
 	Convos      chan map[string]irc.ExpectChan
 }
 
-func Connect(host, nick, group string) (*IRCBackend, error) {
-	conn, err := irc.DialIRC(host, []string{nick}, nick, nick)
+func (i *IRCBackend) Configure(conf tvpn.SigConfig) error {
+	i.Nick = conf["Name"]
+	i.Chan = conf["Group"]
+	i.Server = conf["Server"]
+
+	conn, err := irc.DialIRC(i.Server, []string{i.Nick}, i.Nick, i.Nick)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	_, err = conn.Register()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	chann, err := conn.Join(group)
+	chann, err := conn.Join(i.Chan)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	joinpart, _ := irc.Expect(chann, irc.Command{"", "(JOIN)|(PART)", []string{}})
@@ -67,15 +72,19 @@ func Connect(host, nick, group string) (*IRCBackend, error) {
 		}
 	}()
 
-	msgs, err := irc.Expect(conn, irc.Command{"", "PRIVMSG", []string{nick,".*"}})
+	msgs, err := irc.Expect(conn, irc.Command{"", "PRIVMSG", []string{i.Nick,".*"}})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	//users := chann.GetUsers()
 	//go makeJoin(users, status)
 
-	return &IRCBackend{Conn: conn, Messages: msgs.Chan, Status: status}, nil
+	i.Conn = conn
+	i.Messages = msgs.Chan
+	i.Status = status
+
+	return nil
 }
 
 func makeJoin(users map[string]irc.IRCUser, status chan<- irc.Command) {

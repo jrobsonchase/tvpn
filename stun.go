@@ -24,3 +24,5 @@ import "net"
 type StunBackend interface {
 	DiscoverExt(port int) (net.IP,int,error)
 }
+
+type StunConfig map[string]string

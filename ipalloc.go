@@ -23,7 +23,10 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"strconv"
 )
+
+type IPConfig map[string]string
 
 type IPReq struct {
 	Req  bool
@@ -33,15 +36,28 @@ type IPReq struct {
 
 type IPManager struct {
 	reqs  chan IPReq
+	reinit bool
 	Start net.IP
 	Tuns  int
 }
 
-func NewIPManager(minS string, numTun int) IPManager {
-	min := net.ParseIP(minS)
-	reqs := make(chan IPReq)
-	go ipAllocator(reqs, min, numTun)
-	return IPManager{reqs, min, numTun}
+func (i *IPManager) Init() {
+	if i.reinit {
+		i.stopCurrent()
+	}
+	i.reqs = make(chan IPReq)
+	i.reinit = true
+	go ipAllocator(i.reqs,i.Start,i.Tuns)
+}
+
+func (ipman *IPManager) Configure(conf IPConfig) {
+	ipman.Start = net.ParseIP(conf["Start"])
+	num,err := strconv.Atoi(conf["Num"])
+	if err != nil {
+		panic(err)
+	}
+	ipman.Tuns = num
+	ipman.Init()
 }
 
 func (ipman IPManager) RequestAny() net.IP {
@@ -68,10 +84,13 @@ func (ipman IPManager) Release(ip net.IP) net.IP {
 	return <-resp
 }
 
+func (ipman IPManager) stopCurrent() {
+	close(ipman.reqs)
+}
+
 func ipAllocator(ipReqs chan IPReq, min net.IP, n int) {
 	allocList := make([]bool, n)
-	for {
-		req := <-ipReqs
+	for req := range ipReqs {
 		// is it a request for an IP or relinquishing one?
 		if req.Req {
 			// is it a request for any ip or a specific one?
