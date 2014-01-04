@@ -163,6 +163,7 @@ var ovpnOpts []string = []string{
 	"--dev", "tap",
 	"--ping-exit", "30",
 	"--ping", "10",
+	"--suppress-timestamps",
 }
 
 /*

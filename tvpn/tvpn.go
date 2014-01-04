@@ -38,12 +38,12 @@ func exitError(s string) {
 
 func main() {
 	debugLevel := flag.Int("d",1,"Debugging level. Set to 1 by default")
-	configPath := flag.String("config","tvpn.config","JSON Configuration file")
+	configPath := flag.String("config","/usr/share/tvpn/tvpn.config","JSON Configuration file")
 	flag.Parse()
 
 	conf,err := tvpn.ReadConfig(*configPath)
 	if err != nil {
-		println(err)
+		fmt.Println(err)
 		os.Exit(-1)
 	}
 
@@ -92,10 +92,12 @@ func main() {
 	vpnman := new(ovpn.OVPNBackend)
 	ircman := new(irc.IRCBackend)
 
+	/*
 	ipman.Configure(conf.IPMan)
 	stunman.Configure(conf.Stun)
 	vpnman.Configure(conf.VPN)
-	err = ircman.Configure(conf.Sig)
+	ircman.Configure(conf.Sig)
+	*/
 
 	if err != nil {
 		fmt.Println(err)
@@ -103,13 +105,12 @@ func main() {
 	}
 
 	tvpnInstance := tvpn.New(
-		conf.Name,
-		conf.Group,
-		friends,
 		ircman,
 		stunman,
 		vpnman,
 		ipman)
+
+	tvpnInstance.Configure(*conf)
 
 	err = tvpnInstance.Run()
 

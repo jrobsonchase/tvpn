@@ -20,6 +20,7 @@
 package irc
 
 import (
+	"sync"
 	"fmt"
 	"github.com/Pursuit92/irc"
 	"github.com/Pursuit92/tvpn"
@@ -32,16 +33,28 @@ func SetLogLevel(n int) {
 type IRCBackend struct {
 	Nick,Chan,Server string
 	Conn        *irc.Conn
-	MsgExpector irc.Expector
 	Messages    chan irc.Command
 	Status      chan irc.Command
-	Convos      chan map[string]irc.ExpectChan
 }
 
-func (i *IRCBackend) Configure(conf tvpn.SigConfig) error {
+func (i *IRCBackend) Configure(conf tvpn.SigConfig) {
 	i.Nick = conf["Name"]
 	i.Chan = conf["Group"]
 	i.Server = conf["Server"]
+
+	if i.Conn != nil {
+		// cleanup old connection stuff
+	}
+
+	err := i.Connect()
+
+	if err != nil {
+		panic(err)
+	}
+
+}
+
+func (i *IRCBackend) Connect() error {
 
 	conn, err := irc.DialIRC(i.Server, []string{i.Nick}, i.Nick, i.Nick)
 	if err != nil {
@@ -121,4 +134,21 @@ func (b IRCBackend) RecvMessage() tvpn.Message {
 
 func (b IRCBackend) SendMessage(mes tvpn.Message) error {
 	return b.Conn.Send(irc.Command{b.Conn.Nick, irc.Privmsg, []string{mes.To, mes.String()}})
+}
+
+func combine(inputs []<-chan irc.Command, output chan<- irc.Command) {
+	var group sync.WaitGroup
+	for i := range inputs {
+		group.Add(1)
+		go func(input <-chan irc.Command) {
+			for val := range input {
+				output <- val
+			}
+			group.Done()
+		} (inputs[i])
+	}
+	go func() {
+		group.Wait()
+		close(output)
+	} ()
 }

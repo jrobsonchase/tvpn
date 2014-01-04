@@ -22,6 +22,8 @@ package tvpn
 type SigBackend interface {
 	SendMessage(Message) error
 	RecvMessage() Message
+	Configure(SigConfig)
+	Connect() error
 }
 
 type SigConfig map[string]string

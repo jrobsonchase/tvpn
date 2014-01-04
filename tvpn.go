@@ -31,7 +31,7 @@ type Friend struct {
 }
 
 type TVPN struct {
-	Friends     []string
+	Friends     map[string]Friend
 	Sig         SigBackend
 	Stun        StunBackend
 	VPN			VPNBackend
@@ -54,31 +54,29 @@ func SetLogPrefix(s string) {
 	}
 }
 
-func New(name, group string,
-	friends []string,
-	sig SigBackend,
-	stun StunBackend,
-	vpn VPNBackend, alloc *IPManager) *TVPN {
-
+func New(sig SigBackend, stun StunBackend, vpn VPNBackend, alloc *IPManager) *TVPN {
 	tvpnInstance := TVPN{
 		Sig:  sig,
 		Stun: stun,
-		Friends: friends,
 		VPN: vpn,
 		Alloc: alloc,
+		States: make(map[string]*ConState),
 	}
-	tvpnInstance.States = make(map[string]*ConState)
 
 	return &tvpnInstance
 }
 
+func (t *TVPN) Configure(conf Config) {
+	t.Friends = conf.Friends
+	t.Sig.Configure(conf.Sig)
+	t.Stun.Configure(conf.Stun)
+	t.VPN.Configure(conf.VPN)
+	t.Alloc.Configure(conf.IPMan)
+}
+
 func (t TVPN) IsFriend(name string) bool {
-	for _,v := range t.Friends {
-		if v == name {
-			return true
-		}
-	}
-	return false
+	_,ok := t.Friends[name]
+	return ok
 }
 
 
