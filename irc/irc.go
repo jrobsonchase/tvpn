@@ -34,7 +34,6 @@ type IRCBackend struct {
 	Nick,Chan,Server string
 	Conn        *irc.Conn
 	Messages    chan irc.Command
-	Status      chan irc.Command
 }
 
 func (i *IRCBackend) Configure(conf tvpn.SigConfig) {
@@ -72,30 +71,20 @@ func (i *IRCBackend) Connect() error {
 
 	joinpart, _ := irc.Expect(chann, irc.Command{"", "(JOIN)|(PART)", []string{}})
 	quit, _ := irc.Expect(conn, irc.Command{"", "QUIT", []string{}})
-	status := make(chan irc.Command)
-	// Combine joinpart and quit into one channel
-	go func() {
-		for {
-			select {
-			case msg := <-joinpart.Chan:
-				status <- msg
-			case msg := <-quit.Chan:
-				status <- msg
-			}
-		}
-	}()
 
 	msgs, err := irc.Expect(conn, irc.Command{"", "PRIVMSG", []string{i.Nick,".*"}})
 	if err != nil {
 		return err
 	}
 
+	i.Messages = make(chan irc.Command)
+
+	combine([]<-chan irc.Command{joinpart.Chan,quit.Chan,msgs.Chan},i.Messages)
+
 	//users := chann.GetUsers()
 	//go makeJoin(users, status)
 
 	i.Conn = conn
-	i.Messages = msgs.Chan
-	i.Status = status
 
 	return nil
 }
@@ -108,8 +97,15 @@ func makeJoin(users map[string]irc.IRCUser, status chan<- irc.Command) {
 
 func (b IRCBackend) RecvMessage() tvpn.Message {
 	for {
-		select {
-		case input := <-b.Messages:
+		input := <-b.Messages
+		switch input.Command {
+		case "QUIT", "PART":
+			return tvpn.Message{From: input.Message().Nick, Type: tvpn.Quit}
+		case "JOIN":
+			if input.Message().Nick != b.Conn.Nick {
+				return tvpn.Message{From: input.Message().Nick, Type: tvpn.Join}
+			}
+		default:
 			ircMsg := input.Message()
 			msg, err := tvpn.ParseMessage(input.Params[len(input.Params)-1])
 			if err == nil {
@@ -118,17 +114,7 @@ func (b IRCBackend) RecvMessage() tvpn.Message {
 			} else {
 				fmt.Printf("Failed to parse message!")
 			}
-		case input := <-b.Status:
-			switch input.Command {
-			case "QUIT", "PART":
-				return tvpn.Message{From: input.Message().Nick, Type: tvpn.Quit}
-			case "JOIN":
-				if input.Message().Nick != b.Conn.Nick {
-					return tvpn.Message{From: input.Message().Nick, Type: tvpn.Join}
-				}
-			}
 		}
-
 	}
 }
 
