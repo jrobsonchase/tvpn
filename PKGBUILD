@@ -3,7 +3,7 @@
 # Contributor: Andreas Radke <andyrtr@archlinux.org>
 
 pkgname=tvpn-git
-pkgver=0.r39.ge98b312
+pkgver=0.r43.g93995e6
 pkgrel=1
 pkgdesc="Traverse VPN: Peer-to-Peer VPN solution"
 arch=('i686' 'x86_64')
@@ -36,10 +36,11 @@ build() {
 }
 
 package() {
-	mkdir -p ${pkgdir}/usr/share/tvpn ${pkgdir}/usr/bin
+	mkdir -p ${pkgdir}/usr/share/tvpn ${pkgdir}/usr/bin ${pkgdir}/usr/lib/systemd/system
 
 	cp ${srcdir}/Go/bin/tvpn ${pkgdir}/usr/bin/
 	cp ${srcdir}/Go/src/github.com/Pursuit92/tvpn/tvpn.config ${pkgdir}/usr/share/tvpn/
+	cp ${srcdir}/Go/src/github.com/Pursuit92/tvpn/tvpn.service ${pkgdir}/usr/lib/systemd/system/
 }
 
 sha256sums=('SKIP')
