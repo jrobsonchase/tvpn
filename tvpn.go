@@ -28,6 +28,7 @@ import (
 
 type Friend struct {
 	Validate bool
+	Routes map[string]string
 }
 
 type TVPN struct {
@@ -74,9 +75,9 @@ func (t *TVPN) Configure(conf Config) {
 	t.Alloc.Configure(conf.IPMan)
 }
 
-func (t TVPN) IsFriend(name string) bool {
-	_,ok := t.Friends[name]
-	return ok
+func (t TVPN) IsFriend(name string) (Friend,bool) {
+	f,ok := t.Friends[name]
+	return f,ok
 }
 
 
@@ -87,14 +88,15 @@ func (t *TVPN) Run() error {
 		fmt.Printf("Got a message: %s\n",msg.String())
 		switch msg.Type {
 		case Init:
-			friend := t.IsFriend(msg.From)
+			friend,ok := t.IsFriend(msg.From)
 			fmt.Printf("Creating new state machine for %s\n",msg.From)
-			t.States[msg.From] = NewState(msg.From,friend,false,*t)
+			t.States[msg.From] = NewState(msg.From,friend,ok,false,*t)
 			t.States[msg.From].Input(msg,*t)
 		case Join:
 			fmt.Printf("Received Join from %s!\n",msg.From)
-			if t.IsFriend(msg.From) {
-				t.States[msg.From] = NewState(msg.From,true,true,*t)
+			friend,ok := t.IsFriend(msg.From)
+			if ok {
+				t.States[msg.From] = NewState(msg.From,friend,true,true,*t)
 			}
 			fmt.Println("Done with join!")
 

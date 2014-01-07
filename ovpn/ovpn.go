@@ -21,6 +21,7 @@ package ovpn
 
 import (
 	"fmt"
+	"net"
 	"math/big"
 	"io"
 	"runtime"
@@ -71,19 +72,31 @@ func (ovpn *OVPNBackend) Configure(conf tvpn.VPNConfig) {
 	ovpn.path = conf["Path"]
 }
 
-func (ovpn *OVPNBackend) Connect(remoteip,localtun string,
+func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 	remoteport,localport int,
 	key []*big.Int,
-	dir bool) (tvpn.VPNConn,error) {
+	dir bool,
+	routes map[string]string) (tvpn.VPNConn,error) {
 
+
+	println(tunIP.String())
 	var dirS string
+	var localtun,remotetun net.IP
+	localtun = make([]byte, 16)
+	remotetun = make([]byte, 16)
+	copy(localtun,tunIP)
+	copy(remotetun,tunIP)
 	if dir {
 		dirS = "1"
+		localtun[len(localtun)-1] += 1
+		remotetun[len(remotetun)-1] += 2
 	} else {
 		dirS = "0"
+		localtun[len(localtun)-1] += 2
+		remotetun[len(remotetun)-1] += 1
 	}
 
-	keyfile := fmt.Sprintf("%s%s-%d.key",ovpn.tmp,remoteip,remoteport)
+	keyfile := fmt.Sprintf("%s%s-%d.key",ovpn.tmp,remoteip.String(),remoteport)
 	keyhandle,e := os.Create(keyfile)
 	if e != nil {
 		log.Fatal(e)
@@ -96,13 +109,16 @@ func (ovpn *OVPNBackend) Connect(remoteip,localtun string,
 	}
 	keyhandle.Close()
 
-
-	opts := append(ovpnOpts,
-			"--remote", remoteip,
+	var opts []string = append(ovpnOpts,
+			"--remote", remoteip.String(),
 			"--rport", fmt.Sprintf("%d",remoteport),
 			"--lport", fmt.Sprintf("%d",localport),
 			"--secret", keyfile, dirS,
-			"--ifconfig", localtun, "255.255.255.252")
+			"--ifconfig", localtun.String(), "255.255.255.252")
+
+	for r,m := range routes {
+		opts = append(opts,"--route",r,m,remotetun.String())
+	}
 
 	cmd := exec.Command(ovpn.path, opts...)
 

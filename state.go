@@ -36,6 +36,7 @@ type ConState struct {
 	IP           net.IP
 	Port		 int
 	Friend, Init bool
+	Data		 Friend
 	Conn		 VPNConn
 }
 
@@ -82,17 +83,18 @@ func (st *ConState) Input(mes Message, t TVPN) {
 
 func (st *ConState) Reset(reason string, t TVPN) {
 	st.Cleanup(t)
-	*st = *(NewState(st.Name,st.Friend,st.Init,t))
+	*st = *(NewState(st.Name,st.Data,st.Friend,st.Init,t))
 	if reason != "" {
 		log.Out.Printf(3,"Conversation with %s reset. Reason: %s\n",st.Name,reason)
 	}
 }
 
-func NewState(name string,friend,init bool,t TVPN) *ConState {
+func NewState(name string, fData Friend, friend,init bool,t TVPN) *ConState {
 	st := ConState{}
 	st.Name = name
 	st.Friend = friend
 	st.Init = init
+	st.Data = fData
 	if init {
 		t.Sig.SendMessage(Message{Type: Init, To: name})
 		st.State = InitState
@@ -222,13 +224,7 @@ func (st *ConState) connegState(mes Message,t TVPN) {
 	case Conninfo:
 		ip,port := mes.IPInfo()
 		fmt.Printf("Connecting vpn...")
-		tunIP := st.IP
-		if st.Init {
-			tunIP[len(tunIP)-1] += 1
-		} else {
-			tunIP[len(tunIP)-1] += 2
-		}
-		conn, err := t.VPN.Connect(ip.String(),tunIP.String(),port,st.Port,st.Key,st.Init)
+		conn, err := t.VPN.Connect(ip,st.IP,port,st.Port,st.Key,st.Init,st.Data.Routes)
 		if err == nil {
 			fmt.Printf("VPN Connected!\n")
 			st.Conn = conn
