@@ -1,0 +1,10 @@
+[Unit]
+Description=TVPN Peer-to-Peer VPN
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/tvpn
+
+[Install]
+WantedBy=multi-user.target
+Wants=network.target
