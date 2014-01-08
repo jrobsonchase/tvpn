@@ -24,11 +24,11 @@ import (
 	"net"
 	"math/big"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"bytes"
 	"github.com/Pursuit92/tvpn"
+	"github.com/Pursuit92/LeveledLogger/log"
 )
 
 type OVPNBackend struct {
@@ -53,7 +53,6 @@ func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 	routes map[string]string) (tvpn.VPNConn,error) {
 
 
-	println(tunIP.String())
 	var dirS string
 	var localtun,remotetun net.IP
 	localtun = make([]byte, 16)
@@ -73,7 +72,8 @@ func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 	keyfile := fmt.Sprintf("%s%s-%d.key",ovpn.tmp,remoteip.String(),remoteport)
 	keyhandle,e := os.Create(keyfile)
 	if e != nil {
-		log.Fatal(e)
+		log.Err.Println(1,e)
+		os.Exit(1)
 		return nil,e
 	}
 	_,e = keyhandle.Write(EncodeOpenVPNKey(key))
@@ -97,11 +97,11 @@ func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 	cmd := exec.Command(ovpn.path, opts...)
 
 
-	fmt.Printf("Running command: %s ",cmd.Path)
+	log.Out.Printf(2,"Running command: %s ",cmd.Path)
 	for _,v := range cmd.Args {
-		fmt.Printf("%s ",v)
+		log.Out.Printf(2,"%s ",v)
 	}
-	fmt.Print("\n")
+	log.Out.Print(2,"\n")
 	out,e := cmd.StdoutPipe()
 
 	if e != nil {
@@ -125,7 +125,7 @@ func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 	go conn.out.ReadFrom(out)
 	go conn.err.ReadFrom(err)
 
-	log.Printf("\nVPN Connected with pid %d\n",cmd.Process.Pid)
+	log.Out.Printf(2,"\nVPN Connected with pid %d\n",cmd.Process.Pid)
 	return conn,nil
 }
 

@@ -21,7 +21,6 @@ package irc
 
 import (
 	"sync"
-	"fmt"
 	"github.com/Pursuit92/irc"
 	"github.com/Pursuit92/tvpn"
 )
@@ -111,8 +110,6 @@ func (b IRCBackend) RecvMessage() tvpn.Message {
 			if err == nil {
 				msg.From = ircMsg.Nick
 				return *msg
-			} else {
-				fmt.Printf("Failed to parse message!")
 			}
 		}
 	}

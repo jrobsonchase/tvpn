@@ -27,6 +27,7 @@ import (
 	"github.com/Pursuit92/tvpn/ovpn"
 	"github.com/Pursuit92/tvpn/stun"
 	"github.com/Pursuit92/tvpn/irc"
+	"github.com/Pursuit92/LeveledLogger/log"
 )
 
 const friendLimit int = 256
@@ -43,8 +44,7 @@ func main() {
 
 	conf,err := tvpn.ReadConfig(*configPath)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(-1)
+		exitError(err.Error())
 	}
 
 
@@ -79,9 +79,9 @@ func main() {
 	default:
 	}
 
-	fmt.Printf("Loaded friends:\n")
+	log.Out.Printf(0,"Loaded friends:\n")
 	for _, v := range friends {
-		fmt.Println(v)
+		log.Out.Println(0,v)
 	}
 
 	conf.Sig["Group"] = conf.Group
@@ -100,8 +100,7 @@ func main() {
 	*/
 
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		exitError(err.Error())
 	}
 
 	tvpnInstance := tvpn.New(

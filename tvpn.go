@@ -23,7 +23,6 @@ import (
 	"github.com/Pursuit92/LeveledLogger/log"
 	"math/rand"
 	"time"
-	"fmt"
 )
 
 type Friend struct {
@@ -83,22 +82,22 @@ func (t TVPN) IsFriend(name string) (Friend,bool) {
 
 func (t *TVPN) Run() error {
 	for {
-		fmt.Printf("Waiting for message...\n")
+		log.Out.Printf(3,"Waiting for message...\n")
 		msg := t.Sig.RecvMessage()
-		fmt.Printf("Got a message: %s\n",msg.String())
+		log.Out.Printf(3,"Got a message: %s\n",msg.String())
 		switch msg.Type {
 		case Init:
 			friend,ok := t.IsFriend(msg.From)
-			fmt.Printf("Creating new state machine for %s\n",msg.From)
+			log.Out.Printf(3,"Creating new state machine for %s\n",msg.From)
 			t.States[msg.From] = NewState(msg.From,friend,ok,false,*t)
 			t.States[msg.From].Input(msg,*t)
 		case Join:
-			fmt.Printf("Received Join from %s!\n",msg.From)
+			log.Out.Printf(3,"Received Join from %s!\n",msg.From)
 			friend,ok := t.IsFriend(msg.From)
 			if ok {
 				t.States[msg.From] = NewState(msg.From,friend,true,true,*t)
 			}
-			fmt.Println("Done with join!")
+			log.Out.Println(3,"Done with join!")
 
 		case Quit:
 			st,exists := t.States[msg.From]

@@ -50,35 +50,36 @@ const (
 	ConNeg
 	Connected
 	DeleteMe
+	Validate
 )
 
 func (st *ConState) Input(mes Message, t TVPN) {
-	fmt.Printf("Got message: %s\n",mes.String())
+	log.Out.Printf(4,"Got message: %s\n",mes.String())
 	switch st.State {
 	case NoneState:
-		fmt.Printf("in NoneState\n")
+		log.Out.Printf(3,"in NoneState\n")
 		st.noneState(mes,t)
-		fmt.Printf("Done with state update!\n")
+		log.Out.Printf(3,"Done with state update!\n")
 	case InitState:
-		fmt.Printf("in InitState\n")
+		log.Out.Printf(3,"in InitState\n")
 		st.initState(mes,t)
-		fmt.Printf("Done with state update!\n")
+		log.Out.Printf(3,"Done with state update!\n")
 	case DHNeg:
-		fmt.Printf("in DHNeg\n")
+		log.Out.Printf(3,"in DHNeg\n")
 		st.dhnegState(mes,t)
-		fmt.Printf("Done with state update!\n")
+		log.Out.Printf(3,"Done with state update!\n")
 	case TunNeg:
-		fmt.Printf("in TunNeg\n")
+		log.Out.Printf(3,"in TunNeg\n")
 		st.tunnegState(mes,t)
-		fmt.Printf("Done with state update!\n")
+		log.Out.Printf(3,"Done with state update!\n")
 	case ConNeg:
-		fmt.Printf("in ConNeg\n")
+		log.Out.Printf(3,"in ConNeg\n")
 		st.connegState(mes,t)
-		fmt.Printf("Done with state update!\n")
+		log.Out.Printf(3,"Done with state update!\n")
 	case Connected:
-		fmt.Printf("in Connected\n")
+		log.Out.Printf(3,"in Connected\n")
 		st.connectedState(mes,t)
-		fmt.Printf("Done with state update!\n")
+		log.Out.Printf(3,"Done with state update!\n")
 	default:
 	}
 }
@@ -192,7 +193,6 @@ func (st *ConState) tunnegState(mes Message, t TVPN) {
 	case Tunnip:
 		ip,_ := mes.IPInfo()
 		if ! ip.Equal(st.IP) {
-			fmt.Printf("IP's not equal!\n")
 			if isGreater(ip,st.IP) {
 				t.Alloc.Release(st.IP)
 				st.IP = t.Alloc.Request(ip)
@@ -225,15 +225,15 @@ func (st *ConState) connegState(mes Message,t TVPN) {
 	switch mes.Type {
 	case Conninfo:
 		ip,port := mes.IPInfo()
-		fmt.Printf("Connecting vpn...")
+		log.Out.Printf(2,"Connecting vpn...")
 		conn, err := t.VPN.Connect(ip,st.IP,port,st.Port,st.Key,st.Init,st.Data.Routes)
 		if err == nil {
-			fmt.Printf("VPN Connected!\n")
+			log.Out.Printf(2,"VPN Connected!\n")
 			st.Conn = conn
 			go io.Copy(os.Stdout,conn.Out())
 			st.State = Connected
 		} else {
-			fmt.Printf("Error connecting VPN: %s\n",err.Error())
+			log.Out.Printf(2,"Error connecting VPN: %s\n",err.Error())
 		}
 
 	default:

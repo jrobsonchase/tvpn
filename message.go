@@ -64,15 +64,9 @@ const (
 	resetRE           = `^RESET (?P<reason>.*)$`
 )
 
-func (m Message) Print() {
-	fmt.Printf("From: %s\nTo: %s\nType: %d\n", m.From, m.To, m.Type)
-	for i, v := range m.Data {
-		fmt.Printf("%s: %s\n", i, v)
-	}
-}
-
 func ParseMessage(message string) (*Message, error) {
 
+	// BUG(Josh) Only compile regexps once
 	init := regexp.MustCompile(initRE)
 	accept := regexp.MustCompile(acceptRE)
 	deny := regexp.MustCompile(denyRE)
