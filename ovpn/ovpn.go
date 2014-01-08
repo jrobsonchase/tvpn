@@ -24,10 +24,10 @@ import (
 	"net"
 	"math/big"
 	"io"
-	"runtime"
 	"log"
 	"os"
 	"os/exec"
+	"bytes"
 	"github.com/Pursuit92/tvpn"
 )
 
@@ -35,36 +35,10 @@ type OVPNBackend struct {
 	path,tmp string
 }
 
-/*
-	Path        string
-	RemoteIP    string
-	RemotePort  string
-	LocalPort   string
-	RemoteTunIP string
-	LocalTunIP  string
-	KeyFile     string
-	LogFile     string
-	ErrFile     string
-	Cmd         *exec.Cmd
-}
-*/
-
 type OVPNConn struct {
 	Cmd *exec.Cmd
-}
-
-func New() *OVPNBackend {
-	var ovpnpath string
-	var tmp string
-	if runtime.GOOS == "windows" {
-		//tmp = "%TEMP%\\"
-		tmp = os.ExpandEnv("${TEMP}\\")
-		ovpnpath = `C:\Program Files (x86)\OpenVPN\bin\openvpn.exe`
-	} else {
-		tmp = "/tmp/"
-		ovpnpath = "/usr/bin/openvpn"
-	}
-	return &OVPNBackend{ovpnpath,tmp}
+	out *bytes.Buffer
+	err *bytes.Buffer
 }
 
 func (ovpn *OVPNBackend) Configure(conf tvpn.VPNConfig) {
@@ -143,25 +117,16 @@ func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 		log.Fatal(e)
 	}
 
+	conn := &OVPNConn{Cmd: cmd}
 
-	/*
-	logFile, e := os.Create(fmt.Sprintf("%s%s.log",ovpn.tmp,remoteip))
-	if e != nil {
-		log.Fatal(e)
-		return nil,e
-	}
-	errFile, e := os.Create(fmt.Sprintf("%s%s.err",ovpn.tmp,remoteip))
-	if e != nil {
-		log.Fatal(e)
-		return nil,e
-	}
-	*/
+	conn.out = new(bytes.Buffer)
+	conn.err = new(bytes.Buffer)
 
-	go io.Copy(os.Stdout,out)
-	go io.Copy(os.Stderr,err)
+	go conn.out.ReadFrom(out)
+	go conn.err.ReadFrom(err)
 
 	log.Printf("\nVPN Connected with pid %d\n",cmd.Process.Pid)
-	return &OVPNConn{cmd},nil
+	return conn,nil
 }
 
 func (conn *OVPNConn) Disconnect() {
@@ -169,8 +134,16 @@ func (conn *OVPNConn) Disconnect() {
 	proc.Kill()
 }
 
-func (conn OVPNConn) Status() int {
-	return 0
+func (conn OVPNConn) Connected() bool {
+	return ! conn.Cmd.ProcessState.Exited()
+}
+
+func (conn OVPNConn) Out() io.Reader {
+	return conn.out
+}
+
+func (conn OVPNConn) Err() io.Reader {
+	return conn.err
 }
 
 var ovpnOpts []string = []string{
@@ -181,51 +154,3 @@ var ovpnOpts []string = []string{
 	"--ping", "10",
 	"--suppress-timestamps",
 }
-
-/*
-func (v *OVPN) Connect() {
-	// Set direction for --secret option - allows all of the secret to be used
-	var dir string
-	if v.Direction {
-		dir = "1"
-	} else {
-		dir = "0"
-	}
-
-	cmd := exec.Command(v.Path,
-		append(ovpnOpts,
-			"--remote", v.RemoteIP,
-			"--rport", v.RemotePort,
-			"--lport", v.LocalPort,
-			"--secret", v.KeyFile, dir,
-			"--ifconfig", v.LocalTunIP, "255.255.255.252")...)
-
-	e := cmd.Run()
-
-	if e != nil {
-		log.Fatal(e.Error())
-	}
-	logFile, err := os.OpenFile(v.LogFile, os.O_APPEND, 0666)
-	if err != nil {
-		log.Fatalf("Failed to open file for writing: %s", err)
-	}
-	errFile, err := os.OpenFile(v.ErrFile, os.O_APPEND, 0666)
-	if err != nil {
-		log.Fatalf("Failed to open file for writing: %s", err)
-	}
-
-	go io.Copy(cmd.Stdout, logFile)
-	go io.Copy(cmd.Stderr, errFile)
-
-	v.Cmd = cmd
-	return
-}
-
-func (v *OVPN) Disconnect() {
-	return
-}
-
-func (v *OVPN) Restart() {
-	return
-}
-*/

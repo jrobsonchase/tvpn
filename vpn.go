@@ -22,6 +22,7 @@ package tvpn
 import (
 	"math/big"
 	"net"
+	"io"
 )
 
 type VPNBackend interface {
@@ -31,7 +32,9 @@ type VPNBackend interface {
 
 type VPNConn interface {
 	Disconnect()
-	Status() int
+	Connected() bool
+	Out() io.Reader
+	Err() io.Reader
 }
 
 type VPNConfig map[string]string
