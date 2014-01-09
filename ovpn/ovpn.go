@@ -25,7 +25,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"bytes"
 	"github.com/Pursuit92/tvpn"
 	"github.com/Pursuit92/LeveledLogger/log"
 )
@@ -36,8 +35,8 @@ type OVPNBackend struct {
 
 type OVPNConn struct {
 	Cmd *exec.Cmd
-	out *bytes.Buffer
-	err *bytes.Buffer
+	outBuffer io.Reader
+	errBuffer io.Reader
 }
 
 func (ovpn *OVPNBackend) Configure(conf tvpn.VPNConfig) {
@@ -118,11 +117,8 @@ func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 
 	conn := &OVPNConn{Cmd: cmd}
 
-	conn.out = new(bytes.Buffer)
-	conn.err = new(bytes.Buffer)
-
-	go conn.out.ReadFrom(out)
-	go conn.err.ReadFrom(err)
+	conn.outBuffer = out
+	conn.errBuffer = err
 
 	log.Out.Printf(2,"\nVPN Connected with pid %d\n",cmd.Process.Pid)
 	return conn,nil
@@ -137,12 +133,8 @@ func (conn OVPNConn) Connected() bool {
 	return ! conn.Cmd.ProcessState.Exited()
 }
 
-func (conn OVPNConn) Out() io.Reader {
-	return conn.out
-}
-
-func (conn OVPNConn) Err() io.Reader {
-	return conn.err
+func (conn OVPNConn) Log() (io.Reader,io.Reader) {
+	return conn.outBuffer,conn.errBuffer
 }
 
 var ovpnOpts []string = []string{
