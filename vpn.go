@@ -20,13 +20,12 @@
 package tvpn
 
 import (
-	"math/big"
 	"net"
 	"io"
 )
 
 type VPNBackend interface {
-	Connect(remote,localtun net.IP,remoteport,localport int, key []*big.Int, dir bool,route map[string]string) (VPNConn,error)
+	Connect(remote,localtun net.IP,remoteport,localport int, key [][64]byte, dir bool,route map[string]string) (VPNConn,error)
 	Configure(VPNConfig)
 }
 

@@ -22,13 +22,25 @@ package dh
 import (
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha512"
 	"math/big"
+	"encoding/base64"
 )
 
 type Params struct {
 	Priv []byte
 	X    *big.Int
 	Y    *big.Int
+}
+
+// Encodes the X parameter to a base64 string
+func (p Params) XS() string {
+	return base64.StdEncoding.EncodeToString(p.X.Bytes())
+}
+
+// Encodes the Y parameter to a base64 string
+func (p Params) YS() string {
+	return base64.StdEncoding.EncodeToString(p.Y.Bytes())
 }
 
 var curve elliptic.Curve
@@ -45,4 +57,9 @@ func GenParams() Params {
 func GenMutSecret(local, remote Params) *big.Int {
 	secret, _ := curve.ScalarMult(remote.X, remote.Y, local.Priv)
 	return secret
+}
+
+func GenKey(local, remote Params) [64]byte {
+	secret := GenMutSecret(local,remote)
+	return sha512.Sum512(secret.Bytes())
 }

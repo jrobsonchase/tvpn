@@ -21,11 +21,9 @@ package tvpn
 
 import (
 	"github.com/Pursuit92/LeveledLogger/log"
-	"encoding/base64"
 	"os"
 	"io"
 	"fmt"
-	"math/big"
 	"net"
 	"github.com/Pursuit92/tvpn/dh"
 )
@@ -34,7 +32,8 @@ type ConState struct {
 	State        int
 	Name         string
 	Params       []dh.Params
-	Key          []*big.Int
+	Key          [][64]byte
+	keys		 int
 	IP           net.IP
 	Port		 int
 	Friend, Init bool
@@ -94,6 +93,7 @@ func (st *ConState) Reset(reason string, t TVPN) {
 
 func NewState(name string, fData Friend, friend,init bool,t TVPN) *ConState {
 	st := ConState{}
+	st.keys = 0
 	st.Name = name
 	st.Friend = friend
 	st.Init = init
@@ -116,13 +116,13 @@ func (st *ConState) noneState(mes Message, t TVPN) {
 			t.Sig.SendMessage(Message{Type: Accept, To: st.Name})
 			st.State = DHNeg
 			st.Params = make([]dh.Params, 4)
-			st.Key = make([]*big.Int, 4)
+			st.Key = make([][64]byte, 4)
 			for i := 0; i < 4; i++ {
 				st.Params[i] = dh.GenParams()
 				t.Sig.SendMessage(Message{To: st.Name, Type: Dhpub, Data: map[string]string{
 					"i": fmt.Sprintf("%d", i),
-					"x": base64.StdEncoding.EncodeToString(st.Params[i].X.Bytes()),
-					"y": base64.StdEncoding.EncodeToString(st.Params[i].Y.Bytes()),
+					"x": st.Params[i].XS(),
+					"y": st.Params[i].YS(),
 				}})
 			}
 		} else {
@@ -143,13 +143,13 @@ func (st *ConState) initState(mes Message, t TVPN) {
 	case Accept:
 		st.State = DHNeg
 		st.Params = make([]dh.Params, 4)
-		st.Key = make([]*big.Int, 4)
+		st.Key = make([][64]byte, 4)
 		for i := 0; i < 4; i++ {
 			st.Params[i] = dh.GenParams()
 			t.Sig.SendMessage(Message{To: st.Name, Type: Dhpub, Data: map[string]string{
 				"i": fmt.Sprintf("%d", i),
-				"x": base64.StdEncoding.EncodeToString(st.Params[i].X.Bytes()),
-				"y": base64.StdEncoding.EncodeToString(st.Params[i].Y.Bytes()),
+				"x": st.Params[i].XS(),
+				"y": st.Params[i].YS(),
 			}})
 		}
 	default:
@@ -170,12 +170,10 @@ func (st *ConState) dhnegState(mes Message, t TVPN) {
 			st.Reset("",t)
 			return
 		}
-		st.Key[i] = dh.GenMutSecret(st.Params[i], dh.Params{X: x, Y: y})
-		for _, v := range st.Key {
-			if v == nil {
-				// end state change - still need more keys
-				return
-			}
+		st.Key[i] = dh.GenKey(st.Params[i], dh.Params{X: x, Y: y})
+		st.keys++
+		if st.keys < 4 {
+			return
 		}
 		st.IP = t.Alloc.Request(nil)
 		t.Sig.SendMessage(Message{Type: Tunnip, To: st.Name, Data: map[string]string{"ip": st.IP.String()}})

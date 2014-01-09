@@ -22,7 +22,6 @@ package ovpn
 import (
 	"fmt"
 	"net"
-	"math/big"
 	"io"
 	"os"
 	"os/exec"
@@ -48,7 +47,7 @@ func (ovpn *OVPNBackend) Configure(conf tvpn.VPNConfig) {
 
 func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 	remoteport,localport int,
-	key []*big.Int,
+	key [][64]byte,
 	dir bool,
 	routes map[string]string) (tvpn.VPNConn,error) {
 
