@@ -19,11 +19,15 @@
 
 package tvpn
 
-import "net"
+import (
+	"net"
+	"io"
+)
 
 type StunBackend interface {
 	DiscoverExt(port int) (net.IP,int,error)
 	Configure(StunConfig)
+	Log() (io.Reader,io.Reader)
 }
 
 type StunConfig map[string]string

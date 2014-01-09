@@ -21,7 +21,9 @@ package stun
 
 import (
 	"net"
+	"io"
 	"fmt"
+	"bytes"
 	s "github.com/Pursuit92/stun"
 	"github.com/Pursuit92/tvpn"
 	"github.com/Pursuit92/LeveledLogger/log"
@@ -35,10 +37,23 @@ func (s StunErr) Error() string {
 
 type StunBackend struct {
 	Server string
+	outBuffer *bytes.Buffer
+	errBuffer *bytes.Buffer
 }
 
 func (b *StunBackend) Configure(conf tvpn.StunConfig) {
 	b.Server = conf["Server"]
+
+	if b.outBuffer == nil {
+		b.outBuffer = new(bytes.Buffer)
+		b.errBuffer = new(bytes.Buffer)
+		SetOut(b.outBuffer)
+		SetErr(b.errBuffer)
+	}
+}
+
+func (b StunBackend) Log() (io.Reader,io.Reader) {
+	return b.outBuffer,b.errBuffer
 }
 
 func (b StunBackend) DiscoverExt(port int) (net.IP,int,error) {
@@ -75,7 +90,10 @@ func SetLogLevel(n int) {
 	log.Out.SetLevel(n)
 }
 
-func SetLogPrefix(s string) {
-	log.Out.SetPrefix(2,s)
-	log.Out.SetPrefix(3,s)
+func SetOut(wr io.Writer) {
+	log.Out.SetOutput(wr)
+}
+
+func SetErr(wr io.Writer) {
+	log.Err.SetOutput(wr)
 }

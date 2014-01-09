@@ -21,8 +21,6 @@ package tvpn
 
 import (
 	"github.com/Pursuit92/LeveledLogger/log"
-	"os"
-	"io"
 	"fmt"
 	"net"
 	"github.com/Pursuit92/tvpn/dh"
@@ -228,7 +226,6 @@ func (st *ConState) connegState(mes Message,t TVPN) {
 		if err == nil {
 			log.Out.Printf(2,"VPN Connected!\n")
 			st.Conn = conn
-			go io.Copy(os.Stdout,conn.Out())
 			st.State = Connected
 		} else {
 			log.Out.Printf(2,"Error connecting VPN: %s\n",err.Error())

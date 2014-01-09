@@ -32,8 +32,7 @@ type VPNBackend interface {
 type VPNConn interface {
 	Disconnect()
 	Connected() bool
-	Out() io.Reader
-	Err() io.Reader
+	Log() (io.Reader,io.Reader)
 }
 
 type VPNConfig map[string]string

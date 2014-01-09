@@ -19,11 +19,14 @@
 
 package tvpn
 
+import "io"
+
 type SigBackend interface {
 	SendMessage(Message) error
 	RecvMessage() Message
 	Configure(SigConfig)
 	Connect() error
+	Log() (io.Reader,io.Reader)
 }
 
 type SigConfig map[string]string

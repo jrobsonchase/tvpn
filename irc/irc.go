@@ -20,7 +20,9 @@
 package irc
 
 import (
+	"bytes"
 	"sync"
+	"io"
 	"github.com/Pursuit92/irc"
 	"github.com/Pursuit92/tvpn"
 )
@@ -29,10 +31,24 @@ func SetLogLevel(n int) {
 	irc.SetLogLevel(n)
 }
 
+func SetOut(wr io.Writer) {
+	irc.SetOut(wr)
+}
+
+func SetErr(wr io.Writer) {
+	irc.SetErr(wr)
+}
+
+func (i IRCBackend) Log() (io.Reader,io.Reader) {
+	return i.outBuffer,i.errBuffer
+}
+
 type IRCBackend struct {
 	Nick,Chan,Server string
 	Conn        *irc.Conn
 	Messages    chan irc.Command
+	outBuffer	*bytes.Buffer
+	errBuffer	*bytes.Buffer
 }
 
 func (i *IRCBackend) Configure(conf tvpn.SigConfig) {
@@ -42,6 +58,13 @@ func (i *IRCBackend) Configure(conf tvpn.SigConfig) {
 
 	if i.Conn != nil {
 		// cleanup old connection stuff
+	}
+
+	if i.outBuffer == nil {
+		i.outBuffer = new(bytes.Buffer)
+		i.errBuffer = new(bytes.Buffer)
+		SetOut(i.outBuffer)
+		SetErr(i.errBuffer)
 	}
 
 	err := i.Connect()

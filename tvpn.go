@@ -23,6 +23,8 @@ import (
 	"github.com/Pursuit92/LeveledLogger/log"
 	"math/rand"
 	"time"
+	"os"
+	"io"
 )
 
 type Friend struct {
@@ -79,6 +81,10 @@ func (t TVPN) IsFriend(name string) (Friend,bool) {
 	return f,ok
 }
 
+func (t TVPN) toStdout() {
+	ircOut,_ := t.Sig.Log()
+	io.Copy(os.Stdout,ircOut)
+}
 
 func (t *TVPN) Run() error {
 	for {
