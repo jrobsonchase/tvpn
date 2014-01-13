@@ -83,7 +83,7 @@ func (t TVPN) IsFriend(name string) (Friend,bool) {
 func (t *TVPN) Run() error {
 	for {
 		log.Out.Printf(3,"Waiting for message...\n")
-		msg := t.Sig.RecvMessage()
+		msg, _ := t.Sig.RecvMessage()
 		log.Out.Printf(3,"Got a message: %s\n",msg.String())
 		switch msg.Type {
 		case Init:

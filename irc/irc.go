@@ -32,7 +32,7 @@ func SetLogLevel(n int) {
 type IRCBackend struct {
 	Nick,Chan,Server string
 	Conn        *irc.Conn
-	Messages    chan irc.Command
+	Messages    chan irc.CmdErr
 }
 
 func (i *IRCBackend) Configure(conf tvpn.SigConfig) {
@@ -68,48 +68,42 @@ func (i *IRCBackend) Connect() error {
 		return err
 	}
 
-	joinpart, _ := irc.Expect(chann, irc.Command{"", "(JOIN)|(PART)", []string{}})
-	quit, _ := irc.Expect(conn, irc.Command{"", "QUIT", []string{}})
+	joinpart, _ := chann.Expect(irc.Command{"", "(JOIN)|(PART)", []string{}})
+	quit, _ := conn.Expect(irc.Command{"", "QUIT", []string{}})
 
-	msgs, err := irc.Expect(conn, irc.Command{"", "PRIVMSG", []string{i.Nick,".*"}})
+	msgs, err := conn.Expect(irc.Command{"", "PRIVMSG", []string{i.Nick,".*"}})
 	if err != nil {
 		return err
 	}
 
-	i.Messages = make(chan irc.Command)
+	i.Messages = make(chan irc.CmdErr)
 
-	combine([]<-chan irc.Command{joinpart.Chan,quit.Chan,msgs.Chan},i.Messages)
+	combine([]<-chan irc.CmdErr{joinpart.Chan,quit.Chan,msgs.Chan},i.Messages)
 
 	//users := chann.GetUsers()
-	//go makeJoin(users, status)
 
 	i.Conn = conn
 
 	return nil
 }
 
-func makeJoin(users map[string]irc.IRCUser, status chan<- irc.Command) {
-	for _, v := range users {
-		status <- irc.Command{v.String(), irc.Join, []string{}}
-	}
-}
 
-func (b IRCBackend) RecvMessage() tvpn.Message {
+func (b IRCBackend) RecvMessage() (tvpn.Message,error) {
 	for {
 		input := <-b.Messages
-		switch input.Command {
+		switch input.Cmd.Command {
 		case "QUIT", "PART":
-			return tvpn.Message{From: input.Message().Nick, Type: tvpn.Quit}
+			return tvpn.Message{From: input.Cmd.Message().Nick, Type: tvpn.Quit}, nil
 		case "JOIN":
-			if input.Message().Nick != b.Conn.Nick {
-				return tvpn.Message{From: input.Message().Nick, Type: tvpn.Join}
+			if input.Cmd.Message().Nick != b.Conn.Nick {
+				return tvpn.Message{From: input.Cmd.Message().Nick, Type: tvpn.Join}, nil
 			}
 		default:
-			ircMsg := input.Message()
-			msg, err := tvpn.ParseMessage(input.Params[len(input.Params)-1])
+			ircMsg := input.Cmd.Message()
+			msg, err := tvpn.ParseMessage(input.Cmd.Params[len(input.Cmd.Params)-1])
 			if err == nil {
 				msg.From = ircMsg.Nick
-				return *msg
+				return *msg, nil
 			}
 		}
 	}
@@ -119,11 +113,11 @@ func (b IRCBackend) SendMessage(mes tvpn.Message) error {
 	return b.Conn.Send(irc.Command{b.Conn.Nick, irc.Privmsg, []string{mes.To, mes.String()}})
 }
 
-func combine(inputs []<-chan irc.Command, output chan<- irc.Command) {
+func combine(inputs []<-chan irc.CmdErr, output chan<- irc.CmdErr) {
 	var group sync.WaitGroup
 	for i := range inputs {
 		group.Add(1)
-		go func(input <-chan irc.Command) {
+		go func(input <-chan irc.CmdErr) {
 			for val := range input {
 				output <- val
 			}
