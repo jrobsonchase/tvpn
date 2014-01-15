@@ -23,7 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"runtime"
+	//"runtime"
 	"github.com/Pursuit92/tvpn"
 	"github.com/Pursuit92/tvpn/ovpn"
 	"github.com/Pursuit92/tvpn/stun"
@@ -39,8 +39,8 @@ func exitError(s string) {
 }
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	debugLevel := flag.Int("d",1,"Debugging level. Set to 1 by default")
+	//runtime.GOMAXPROCS(runtime.NumCPU())
+	verboseLevel := flag.Int("v",1,"Verbosity level. Set to 1 by default")
 	configPath := flag.String("config","/usr/share/tvpn/tvpn.config","JSON Configuration file")
 	flag.Parse()
 
@@ -57,7 +57,7 @@ func main() {
 		i++
 	}
 
-	switch *debugLevel {
+	switch *verboseLevel {
 	case 0,1:
 	case 2:
 		irc.SetLogLevel(2)

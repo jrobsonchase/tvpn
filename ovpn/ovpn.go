@@ -68,10 +68,10 @@ func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 	}
 
 	keyfile := fmt.Sprintf("%s%s-%d.key",ovpn.tmp,remoteip.String(),remoteport)
+	log.Out.Printf(2,"Creating key file %s\n",keyfile)
 	keyhandle,e := os.Create(keyfile)
 	if e != nil {
-		log.Err.Println(1,e)
-		os.Exit(1)
+		log.Out.Println(1,e)
 		return nil,e
 	}
 	_,e = keyhandle.Write(EncodeOpenVPNKey(key))
@@ -112,7 +112,8 @@ func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 	}
 	e = cmd.Start()
 	if e != nil {
-		log.Fatal(e)
+		log.Out.Println(1,e)
+		return nil, e
 	}
 
 	conn := &OVPNConn{Cmd: cmd}
@@ -125,6 +126,7 @@ func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 }
 
 func (conn *OVPNConn) Disconnect() {
+	log.Out.Printf(2,"Killing process with PID %d\n",conn.Cmd.Process.Pid)
 	proc := conn.Cmd.Process
 	proc.Kill()
 }
