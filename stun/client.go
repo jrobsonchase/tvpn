@@ -57,14 +57,14 @@ func DiscoverExternal(port int, addr string) (*net.UDPAddr) {
 
 	message.AddAttribute(s.MappedAddress("0.0.0.0",port))
 
-	log.Out.Printf(2,"Attempting to discover external IP/Port via %s\n",addr)
+	log.Out.Lprintf(2,"Attempting to discover external IP/Port via %s\n",addr)
 	resp := s.SendMessage(message,fmt.Sprintf("0.0.0.0:%d",port),addr)
 
 	for _,v := range resp.Attrs {
 		if v.Type == s.MappedAddressCode {
 			ma,ok := v.Attr.(s.MappedAddressAttr)
 			if ok {
-				log.Out.Printf(2,"Received external IP/Port %v:%v\n",ma.Address,ma.Port)
+				log.Out.Lprintf(2,"Received external IP/Port %v:%v\n",ma.Address,ma.Port)
 				return &net.UDPAddr{ IP: ma.Address, Port: ma.Port }
 			}
 		}

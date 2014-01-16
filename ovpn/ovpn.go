@@ -68,10 +68,10 @@ func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 	}
 
 	keyfile := fmt.Sprintf("%s%s-%d.key",ovpn.tmp,remoteip.String(),remoteport)
-	log.Out.Printf(2,"Creating key file %s\n",keyfile)
+	log.Out.Lprintf(2,"Creating key file %s\n",keyfile)
 	keyhandle,e := os.Create(keyfile)
 	if e != nil {
-		log.Out.Println(1,e)
+		log.Out.Lprintln(1,e)
 		return nil,e
 	}
 	_,e = keyhandle.Write(EncodeOpenVPNKey(key))
@@ -95,11 +95,11 @@ func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 	cmd := exec.Command(ovpn.path, opts...)
 
 
-	log.Out.Printf(2,"Running command: %s ",cmd.Path)
+	log.Out.Lprintf(2,"Running command: %s ",cmd.Path)
 	for _,v := range cmd.Args {
-		log.Out.Printf(2,"%s ",v)
+		log.Out.Lprintf(2,"%s ",v)
 	}
-	log.Out.Print(2,"\n")
+	log.Out.Lprint(2,"\n")
 	out,e := cmd.StdoutPipe()
 
 	if e != nil {
@@ -112,7 +112,7 @@ func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 	}
 	e = cmd.Start()
 	if e != nil {
-		log.Out.Println(1,e)
+		log.Out.Lprintln(1,e)
 		return nil, e
 	}
 
@@ -121,12 +121,12 @@ func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 	conn.outBuffer = out
 	conn.errBuffer = err
 
-	log.Out.Printf(2,"\nVPN Connected with pid %d\n",cmd.Process.Pid)
+	log.Out.Lprintf(2,"\nVPN Connected with pid %d\n",cmd.Process.Pid)
 	return conn,nil
 }
 
 func (conn *OVPNConn) Disconnect() {
-	log.Out.Printf(2,"Killing process with PID %d\n",conn.Cmd.Process.Pid)
+	log.Out.Lprintf(2,"Killing process with PID %d\n",conn.Cmd.Process.Pid)
 	proc := conn.Cmd.Process
 	proc.Kill()
 }

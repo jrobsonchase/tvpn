@@ -21,7 +21,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	//"runtime"
 	"github.com/Pursuit92/tvpn"
@@ -34,7 +33,7 @@ import (
 const friendLimit int = 256
 
 func exitError(s string) {
-	fmt.Printf("%s\n", s)
+	log.Out.Lprintf(0,"%s\n", s)
 	os.Exit(1)
 }
 
@@ -81,9 +80,9 @@ func main() {
 	default:
 	}
 
-	log.Out.Printf(0,"Loaded friends:\n")
+	log.Out.Lprintf(0,"Loaded friends:\n")
 	for _, v := range friends {
-		log.Out.Println(0,v)
+		log.Out.Lprintln(0,v)
 	}
 
 	conf.Sig["Group"] = conf.Group

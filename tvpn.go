@@ -82,22 +82,22 @@ func (t TVPN) IsFriend(name string) (Friend,bool) {
 
 func (t *TVPN) Run() error {
 	for {
-		log.Out.Printf(3,"Waiting for message...\n")
+		log.Out.Lprintf(3,"Waiting for message...\n")
 		msg, _ := t.Sig.RecvMessage()
-		log.Out.Printf(3,"Got a message: %s\n",msg.String())
+		log.Out.Lprintf(3,"Got a message: %s\n",msg.String())
 		switch msg.Type {
 		case Init:
 			friend,ok := t.IsFriend(msg.From)
-			log.Out.Printf(3,"Creating new state machine for %s\n",msg.From)
+			log.Out.Lprintf(3,"Creating new state machine for %s\n",msg.From)
 			t.States[msg.From] = NewState(msg.From,friend,ok,false,*t)
 			t.States[msg.From].Input(msg,*t)
 		case Join:
-			log.Out.Printf(3,"Received Join from %s!\n",msg.From)
+			log.Out.Lprintf(3,"Received Join from %s!\n",msg.From)
 			friend,ok := t.IsFriend(msg.From)
 			if ok {
 				t.States[msg.From] = NewState(msg.From,friend,true,true,*t)
 			}
-			log.Out.Println(3,"Done with join!")
+			log.Out.Lprintln(3,"Done with join!")
 
 		case Quit:
 			st,exists := t.States[msg.From]

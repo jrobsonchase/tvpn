@@ -68,12 +68,12 @@ func (ipman IPManager) RequestAny() net.IP {
 }
 
 func (ipman IPManager) Request(ip net.IP) net.IP {
-	log.Out.Println(3,"Attempting to allocate ",ip)
+	log.Out.Lprintln(3,"Attempting to allocate ",ip)
 	resp := make(chan net.IP)
 	req := IPReq{Req: true, IP: ip, Resp: resp}
 	ipman.reqs <- req
 	ret := <-resp
-	log.Out.Println(3,"Returning ",ret)
+	log.Out.Lprintln(3,"Returning ",ret)
 	return ret
 }
 
@@ -95,7 +95,7 @@ func ipAllocator(ipReqs chan IPReq, min net.IP, n int) {
 		if req.Req {
 			// is it a request for any ip or a specific one?
 			if req.IP == nil {
-				log.Out.Println(4,"Got request for first available!")
+				log.Out.Lprintln(4,"Got request for first available!")
 				// any case, pick the first unallocated
 				for i, v := range allocList {
 					if !v {
@@ -105,17 +105,17 @@ func ipAllocator(ipReqs chan IPReq, min net.IP, n int) {
 					}
 				}
 			} else {
-				log.Out.Println(4,"Attempting to allocate ",req.IP)
+				log.Out.Lprintln(4,"Attempting to allocate ",req.IP)
 				// specific: if the requested isn't available, pick the next
 				i := ipToIndex(min, req.IP)
 				if !allocList[i] {
-					log.Out.Println(4,"Allocated ",indexToIP(min,i))
+					log.Out.Lprintln(4,"Allocated ",indexToIP(min,i))
 					req.Resp <- indexToIP(min, i)
 					allocList[i] = true
 				} else {
 					for j := i; j < len(allocList); j++ {
 						if !allocList[j] {
-							log.Out.Println(4,"Allocated ",indexToIP(min,j))
+							log.Out.Lprintln(4,"Allocated ",indexToIP(min,j))
 							req.Resp <- indexToIP(min, j)
 							allocList[j] = true
 							break

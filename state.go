@@ -51,32 +51,32 @@ const (
 )
 
 func (st *ConState) Input(mes Message, t TVPN) {
-	log.Out.Printf(4,"Got message: %s\n",mes.String())
+	log.Out.Lprintf(4,"Got message: %s\n",mes.String())
 	switch st.State {
 	case NoneState:
-		log.Out.Printf(3,"in NoneState\n")
+		log.Out.Lprintf(3,"in NoneState\n")
 		st.noneState(mes,t)
-		log.Out.Printf(3,"Done with state update!\n")
+		log.Out.Lprintf(3,"Done with state update!\n")
 	case InitState:
-		log.Out.Printf(3,"in InitState\n")
+		log.Out.Lprintf(3,"in InitState\n")
 		st.initState(mes,t)
-		log.Out.Printf(3,"Done with state update!\n")
+		log.Out.Lprintf(3,"Done with state update!\n")
 	case DHNeg:
-		log.Out.Printf(3,"in DHNeg\n")
+		log.Out.Lprintf(3,"in DHNeg\n")
 		st.dhnegState(mes,t)
-		log.Out.Printf(3,"Done with state update!\n")
+		log.Out.Lprintf(3,"Done with state update!\n")
 	case TunNeg:
-		log.Out.Printf(3,"in TunNeg\n")
+		log.Out.Lprintf(3,"in TunNeg\n")
 		st.tunnegState(mes,t)
-		log.Out.Printf(3,"Done with state update!\n")
+		log.Out.Lprintf(3,"Done with state update!\n")
 	case ConNeg:
-		log.Out.Printf(3,"in ConNeg\n")
+		log.Out.Lprintf(3,"in ConNeg\n")
 		st.connegState(mes,t)
-		log.Out.Printf(3,"Done with state update!\n")
+		log.Out.Lprintf(3,"Done with state update!\n")
 	case Connected:
-		log.Out.Printf(3,"in Connected\n")
+		log.Out.Lprintf(3,"in Connected\n")
 		st.connectedState(mes,t)
-		log.Out.Printf(3,"Done with state update!\n")
+		log.Out.Lprintf(3,"Done with state update!\n")
 	default:
 	}
 }
@@ -85,7 +85,7 @@ func (st *ConState) Reset(reason string, t TVPN) {
 	st.Cleanup(t)
 	*st = *(NewState(st.Name,st.Data,st.Friend,st.Init,t))
 	if reason != "" {
-		log.Out.Printf(3,"Conversation with %s reset. Reason: %s\n",st.Name,reason)
+		log.Out.Lprintf(3,"Conversation with %s reset. Reason: %s\n",st.Name,reason)
 	}
 }
 
@@ -221,14 +221,14 @@ func (st *ConState) connegState(mes Message,t TVPN) {
 	switch mes.Type {
 	case Conninfo:
 		ip,port := mes.IPInfo()
-		log.Out.Printf(2,"Connecting vpn...")
+		log.Out.Lprintf(2,"Connecting vpn...")
 		conn, err := t.VPN.Connect(ip,st.IP,port,st.Port,st.Key,st.Init,st.Data.Routes)
 		if err == nil {
-			log.Out.Printf(2,"VPN Connected!\n")
+			log.Out.Lprintf(2,"VPN Connected!\n")
 			st.Conn = conn
 			st.State = Connected
 		} else {
-			log.Out.Printf(2,"Error connecting VPN: %s\n",err.Error())
+			log.Out.Lprintf(2,"Error connecting VPN: %s\n",err.Error())
 		}
 
 	default:

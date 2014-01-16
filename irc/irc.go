@@ -57,7 +57,7 @@ func (i *IRCBackend) Configure(conf tvpn.SigConfig) {
 		err := i.Connect()
 
 		if err != nil {
-			log.Out.Println(1,err)
+			log.Out.Lprintln(1,err)
 		}
 	}
 }
@@ -73,32 +73,32 @@ func (i *IRCBackend) Reconnect() error {
 
 func (i *IRCBackend) Connect() error {
 
-	log.Out.Printf(2,"Connecting to irc server %s with nick %s\n",i.Server, i.Nick)
+	log.Out.Lprintf(2,"Connecting to irc server %s with nick %s\n",i.Server, i.Nick)
 
 	conn, err := irc.DialIRC(i.Server, []string{i.Nick}, i.Nick, i.Nick)
 	if err != nil {
 		return err
 	}
 
-	log.Out.Println(2,"Connect success, attempting register...")
+	log.Out.Lprintln(2,"Connect success, attempting register...")
 
 	_, err = conn.Register()
 	if err != nil {
 		return err
 	}
 
-	log.Out.Printf(2,"Register success, attempting to join channel %s\n",i.Chan)
+	log.Out.Lprintf(2,"Register success, attempting to join channel %s\n",i.Chan)
 
 	chann, err := conn.Join(i.Chan)
 	if err != nil {
 		return err
 	}
 
-	log.Out.Println(2,"Join success, registering listeners for join/part")
-	joinpart, _ := chann.Expect(irc.Command{"", "(JOIN)|(PART)", []string{}})
-	quit, _ := conn.Expect(irc.Command{"", "QUIT", []string{}})
+	log.Out.Lprintln(2,"Join success, registering listeners for join/part")
+	joinpart, _ := chann.Expect(irc.Command{Prefix: "", Command: "(JOIN)|(PART)", Params: []string{}})
+	quit, _ := conn.Expect(irc.Command{Prefix: "", Command: "QUIT", Params: []string{}})
 
-	msgs, err := conn.Expect(irc.Command{"", "PRIVMSG", []string{i.Nick,".*"}})
+	msgs, err := conn.Expect(irc.Command{Prefix: "", Command: "PRIVMSG", Params: []string{i.Nick,".*"}})
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (i *IRCBackend) Connect() error {
 
 	i.Conn = conn
 
-	log.Out.Println(2,"Connect complete!")
+	log.Out.Lprintln(2,"Connect complete!")
 	return nil
 }
 
@@ -121,30 +121,32 @@ func (i IRCBackend) RecvMessage() (tvpn.Message,error) {
 		}
 		switch input.Cmd.Command {
 		case "QUIT", "PART":
-			log.Out.Printf(2,"Received QUIT/PART from %s\n",input.Cmd.Message().Nick)
+			log.Out.Lprintf(2,"Received QUIT/PART from %s\n",input.Cmd.Message().Nick)
 			return tvpn.Message{From: input.Cmd.Message().Nick, Type: tvpn.Quit}, nil
 		case "JOIN":
 			if input.Cmd.Message().Nick != i.Conn.Nick {
-				log.Out.Printf(2,"Received JOIN from %s\n",input.Cmd.Message().Nick)
+				log.Out.Lprintf(2,"Received JOIN from %s\n",input.Cmd.Message().Nick)
 				return tvpn.Message{From: input.Cmd.Message().Nick, Type: tvpn.Join}, nil
 			}
 		default:
 			ircMsg := input.Cmd.Message()
 			msg, err := tvpn.ParseMessage(input.Cmd.Params[len(input.Cmd.Params)-1])
 			if err == nil {
-				log.Out.Printf(2,"Received message: %s\n",input.Cmd.String())
+				log.Out.Lprintf(2,"Received message: %s\n",input.Cmd.String())
 				msg.From = ircMsg.Nick
 				return *msg, nil
 			}
-			log.Out.Printf(2,"Received malformed message: %s\n",input.Cmd.String())
+			log.Out.Lprintf(2,"Received malformed message: %s\n",input.Cmd.String())
 		}
 	}
 	return tvpn.Message{}, irc.Disconnect
 }
 
 func (i IRCBackend) SendMessage(mes tvpn.Message) error {
-	log.Out.Printf(2,"Sending message to %s: %s\n",mes.To,mes.String())
-	return i.Conn.Send(irc.Command{i.Conn.Nick, irc.Privmsg, []string{mes.To, mes.String()}})
+	log.Out.Lprintf(2,"Sending message to %s: %s\n",mes.To,mes.String())
+	return i.Conn.Send(irc.Command{Prefix: i.Conn.Nick,
+		Command: irc.Privmsg,
+		Params: []string{mes.To, mes.String()}})
 }
 
 func combine(inputs []<-chan irc.CmdErr, output chan<- irc.CmdErr) {
