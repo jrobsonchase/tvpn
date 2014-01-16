@@ -43,21 +43,33 @@ type IPManager struct {
 
 func (ipman *IPManager) Init() {
 	if ipman.reinit {
-		ipman.stopCurrent()
+		ipman.Stop()
 	}
 	ipman.reqs = make(chan IPReq)
 	ipman.reinit = true
 	go ipAllocator(ipman.reqs,ipman.Start,ipman.Tuns)
 }
 
-func (ipman *IPManager) Configure(conf IPConfig) {
-	ipman.Start = net.ParseIP(conf["Start"])
+func (ipman *IPManager) Configure(conf IPConfig) bool {
 	num,err := strconv.Atoi(conf["Num"])
 	if err != nil {
 		panic(err)
 	}
-	ipman.Tuns = num
-	ipman.Init()
+	var newIP bool
+	confIP := net.ParseIP(conf["Start"])
+	for i,v := range ipman.Start {
+		if v != confIP[i] {
+			newIP = true
+			break
+		}
+	}
+
+	if newIP || ipman.Tuns != num {
+		ipman.Start = confIP
+		ipman.Tuns = num
+		return true
+	}
+	return false
 }
 
 func (ipman IPManager) RequestAny() net.IP {
@@ -84,7 +96,8 @@ func (ipman IPManager) Release(ip net.IP) net.IP {
 	return <-resp
 }
 
-func (ipman IPManager) stopCurrent() {
+func (ipman *IPManager) Stop() {
+	ipman.reinit = false
 	close(ipman.reqs)
 }
 

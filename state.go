@@ -50,7 +50,7 @@ const (
 	Validate
 )
 
-func (st *ConState) Input(mes Message, t TVPN) {
+func (st *ConState) Input(mes Message, t *TVPN) {
 	log.Out.Lprintf(4,"Got message: %s\n",mes.String())
 	switch st.State {
 	case NoneState:
@@ -81,7 +81,7 @@ func (st *ConState) Input(mes Message, t TVPN) {
 	}
 }
 
-func (st *ConState) Reset(reason string, t TVPN) {
+func (st *ConState) Reset(reason string, t *TVPN) {
 	st.Cleanup(t)
 	*st = *(NewState(st.Name,st.Data,st.Friend,st.Init,t))
 	if reason != "" {
@@ -89,7 +89,7 @@ func (st *ConState) Reset(reason string, t TVPN) {
 	}
 }
 
-func NewState(name string, fData Friend, friend,init bool,t TVPN) *ConState {
+func NewState(name string, fData Friend, friend,init bool,t *TVPN) *ConState {
 	st := ConState{}
 	st.keys = 0
 	st.Name = name
@@ -107,7 +107,7 @@ func NewState(name string, fData Friend, friend,init bool,t TVPN) *ConState {
 
 // NoneState is the state in which we wait for an Init
 // Next state is DHNeg after a valid Init
-func (st *ConState) noneState(mes Message, t TVPN) {
+func (st *ConState) noneState(mes Message, t *TVPN) {
 	switch mes.Type {
 	case Init:
 		if st.Friend {
@@ -136,7 +136,7 @@ func (st *ConState) noneState(mes Message, t TVPN) {
 
 // Init state is after Init is sent and before Accept is received
 // Next state is DHNeg
-func (st *ConState) initState(mes Message, t TVPN) {
+func (st *ConState) initState(mes Message, t *TVPN) {
 	switch mes.Type {
 	case Accept:
 		st.State = DHNeg
@@ -157,7 +157,7 @@ func (st *ConState) initState(mes Message, t TVPN) {
 	}
 }
 
-func (st *ConState) dhnegState(mes Message, t TVPN) {
+func (st *ConState) dhnegState(mes Message, t *TVPN) {
 	switch mes.Type {
 	case Dhpub:
 		x, y, i, err := mes.DhParams()
@@ -184,7 +184,7 @@ func (st *ConState) dhnegState(mes Message, t TVPN) {
 	}
 }
 
-func (st *ConState) tunnegState(mes Message, t TVPN) {
+func (st *ConState) tunnegState(mes Message, t *TVPN) {
 	switch mes.Type {
 	case Tunnip:
 		ip,_ := mes.IPInfo()
@@ -217,7 +217,7 @@ func (st *ConState) tunnegState(mes Message, t TVPN) {
 
 }
 
-func (st *ConState) connegState(mes Message,t TVPN) {
+func (st *ConState) connegState(mes Message,t *TVPN) {
 	switch mes.Type {
 	case Conninfo:
 		ip,port := mes.IPInfo()
@@ -239,10 +239,10 @@ func (st *ConState) connegState(mes Message,t TVPN) {
 }
 
 
-func (st *ConState) connectedState(mes Message,t TVPN) {
+func (st *ConState) connectedState(mes Message,t *TVPN) {
 }
 
-func (st *ConState) Cleanup(t TVPN) {
+func (st *ConState) Cleanup(t *TVPN) {
 	if st.Conn != nil {
 		st.Conn.Disconnect()
 		st.Conn = nil

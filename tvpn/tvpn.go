@@ -22,7 +22,8 @@ package main
 import (
 	"flag"
 	"os"
-	//"runtime"
+	"time"
+	"runtime"
 	"github.com/Pursuit92/tvpn"
 	"github.com/Pursuit92/tvpn/ovpn"
 	"github.com/Pursuit92/tvpn/stun"
@@ -38,6 +39,19 @@ func exitError(s string) {
 }
 
 func main() {
+
+	go func() {
+		for _ = range time.Tick(5 * time.Second) {
+			bsize := 1024 * 1024
+			buf := make([]byte,1024 * 1024)
+			n := runtime.Stack(buf, true)
+			println("Stack Trace:")
+			println(string(buf[:n]))
+			println("bsize is",bsize)
+			println("Read",n,"bytes")
+		}
+	}()
+
 	//runtime.GOMAXPROCS(runtime.NumCPU())
 	verboseLevel := flag.Int("v",1,"Verbosity level. Set to 1 by default")
 	configPath := flag.String("config","/usr/share/tvpn/tvpn.config","JSON Configuration file")
@@ -112,6 +126,10 @@ func main() {
 
 	tvpnInstance.Configure(*conf)
 
-	err = tvpnInstance.Run()
+	//tvpnInstance.Start()
+
+	m := createAPI(tvpnInstance)
+
+	m.Run()
 
 }

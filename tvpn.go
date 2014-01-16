@@ -81,39 +81,67 @@ func (t TVPN) IsFriend(name string) (Friend,bool) {
 
 
 func (t *TVPN) Run() error {
-	for {
-		log.Out.Lprintf(3,"Waiting for message...\n")
-		msg, _ := t.Sig.RecvMessage()
-		log.Out.Lprintf(3,"Got a message: %s\n",msg.String())
+	var msg Message
+	var err error
+
+	t.Alloc.Init()
+
+	err = t.Sig.Connect()
+
+	if err != nil {
+		log.Out.Lprintln(0,err)
+		return err
+	}
+
+	for msg, err = t.Sig.RecvMessage(); err == nil; msg, err = t.Sig.RecvMessage() {
 		switch msg.Type {
 		case Init:
 			friend,ok := t.IsFriend(msg.From)
 			log.Out.Lprintf(3,"Creating new state machine for %s\n",msg.From)
-			t.States[msg.From] = NewState(msg.From,friend,ok,false,*t)
-			t.States[msg.From].Input(msg,*t)
+			t.States[msg.From] = NewState(msg.From,friend,ok,false,t)
+			t.States[msg.From].Input(msg,t)
 		case Join:
 			log.Out.Lprintf(3,"Received Join from %s!\n",msg.From)
 			friend,ok := t.IsFriend(msg.From)
 			if ok {
-				t.States[msg.From] = NewState(msg.From,friend,true,true,*t)
+				t.States[msg.From] = NewState(msg.From,friend,true,true,t)
 			}
 			log.Out.Lprintln(3,"Done with join!")
 
 		case Quit:
 			st,exists := t.States[msg.From]
 			if exists {
-				st.Cleanup(*t)
+				st.Cleanup(t)
 				delete(t.States,msg.From)
 			}
 		case Reset:
-			t.States[msg.From].Reset(msg.Data["reason"],*t)
+			t.States[msg.From].Reset(msg.Data["reason"],t)
 		default:
 			st,exists := t.States[msg.From]
 			if exists {
-				st.Input(msg,*t)
+				st.Input(msg,t)
 			} else {
 				// do stuff here
 			}
 		}
 	}
+	return err
 }
+
+func (t *TVPN) Start() {
+	go t.Run()
+}
+
+func (t *TVPN) Stop() {
+	t.Sig.Disconnect()
+	t.Alloc.Stop()
+	t.Cleanup()
+}
+
+func (t *TVPN) Cleanup() {
+	for i,v := range t.States {
+		v.Cleanup(t)
+		delete(t.States, i)
+	}
+}
+

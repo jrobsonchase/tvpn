@@ -34,11 +34,11 @@ func SetLogLevel(n int) {
 type IRCBackend struct {
 	Nick,Chan,Server string
 	Conn        *irc.Conn
-	Messages    chan irc.CmdErr
+	Messages    <-chan irc.CmdErr
 }
 
-func (i *IRCBackend) Configure(conf tvpn.SigConfig) {
-	var changed, exists bool
+func (i *IRCBackend) Configure(conf tvpn.SigConfig) bool {
+	var changed bool
 	if i.Nick != conf["Name"] || i.Chan != conf["Group"] || i.Server != conf["Server"] {
 		i.Nick = conf["Name"]
 		i.Chan = conf["Group"]
@@ -46,20 +46,7 @@ func (i *IRCBackend) Configure(conf tvpn.SigConfig) {
 		changed = true
 	}
 
-	if i.Conn != nil {
-		exists = true
-	}
-
-	if changed {
-		if exists {
-			i.Disconnect()
-		}
-		err := i.Connect()
-
-		if err != nil {
-			log.Out.Lprintln(1,err)
-		}
-	}
+	return changed
 }
 
 func (i *IRCBackend) Disconnect() {
@@ -103,9 +90,7 @@ func (i *IRCBackend) Connect() error {
 		return err
 	}
 
-	i.Messages = make(chan irc.CmdErr)
-
-	combine([]<-chan irc.CmdErr{joinpart.Chan,quit.Chan,msgs.Chan},i.Messages)
+	i.Messages = combine([]<-chan irc.CmdErr{joinpart.Chan,quit.Chan,msgs.Chan})
 
 	i.Conn = conn
 
@@ -149,7 +134,8 @@ func (i IRCBackend) SendMessage(mes tvpn.Message) error {
 		Params: []string{mes.To, mes.String()}})
 }
 
-func combine(inputs []<-chan irc.CmdErr, output chan<- irc.CmdErr) {
+func combine(inputs []<-chan irc.CmdErr) <-chan irc.CmdErr {
+	output := make(chan irc.CmdErr, len(inputs))
 	var group sync.WaitGroup
 	for i := range inputs {
 		group.Add(1)
@@ -164,4 +150,5 @@ func combine(inputs []<-chan irc.CmdErr, output chan<- irc.CmdErr) {
 		group.Wait()
 		close(output)
 	} ()
+	return output
 }
