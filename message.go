@@ -75,7 +75,7 @@ func ParseMessage(message string) (*Message, error) {
 	conninfo := regexp.MustCompile(conninfoRE)
 	reset := regexp.MustCompile(resetRE)
 
-	var data map[string]string = make(map[string]string)
+	data := make(map[string]string)
 
 	switch {
 	case init.MatchString(message):

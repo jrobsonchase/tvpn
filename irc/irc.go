@@ -114,8 +114,8 @@ func (i *IRCBackend) Connect() error {
 }
 
 
-func (b IRCBackend) RecvMessage() (tvpn.Message,error) {
-	for input := range b.Messages {
+func (i IRCBackend) RecvMessage() (tvpn.Message,error) {
+	for input := range i.Messages {
 		if input.Err != nil {
 			return tvpn.Message{},input.Err
 		}
@@ -124,7 +124,7 @@ func (b IRCBackend) RecvMessage() (tvpn.Message,error) {
 			log.Out.Printf(2,"Received QUIT/PART from %s\n",input.Cmd.Message().Nick)
 			return tvpn.Message{From: input.Cmd.Message().Nick, Type: tvpn.Quit}, nil
 		case "JOIN":
-			if input.Cmd.Message().Nick != b.Conn.Nick {
+			if input.Cmd.Message().Nick != i.Conn.Nick {
 				log.Out.Printf(2,"Received JOIN from %s\n",input.Cmd.Message().Nick)
 				return tvpn.Message{From: input.Cmd.Message().Nick, Type: tvpn.Join}, nil
 			}
@@ -135,17 +135,16 @@ func (b IRCBackend) RecvMessage() (tvpn.Message,error) {
 				log.Out.Printf(2,"Received message: %s\n",input.Cmd.String())
 				msg.From = ircMsg.Nick
 				return *msg, nil
-			} else {
-				log.Out.Printf(2,"Received malformed message: %s\n",input.Cmd.String())
 			}
+			log.Out.Printf(2,"Received malformed message: %s\n",input.Cmd.String())
 		}
 	}
-	return tvpn.Message{}, irc.IRCErr("Disconnected")
+	return tvpn.Message{}, irc.Disconnect
 }
 
-func (b IRCBackend) SendMessage(mes tvpn.Message) error {
+func (i IRCBackend) SendMessage(mes tvpn.Message) error {
 	log.Out.Printf(2,"Sending message to %s: %s\n",mes.To,mes.String())
-	return b.Conn.Send(irc.Command{b.Conn.Nick, irc.Privmsg, []string{mes.To, mes.String()}})
+	return i.Conn.Send(irc.Command{i.Conn.Nick, irc.Privmsg, []string{mes.To, mes.String()}})
 }
 
 func combine(inputs []<-chan irc.CmdErr, output chan<- irc.CmdErr) {

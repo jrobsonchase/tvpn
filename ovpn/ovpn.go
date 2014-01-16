@@ -59,12 +59,12 @@ func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 	copy(remotetun,tunIP)
 	if dir {
 		dirS = "1"
-		localtun[len(localtun)-1] += 1
+		localtun[len(localtun)-1]++
 		remotetun[len(remotetun)-1] += 2
 	} else {
 		dirS = "0"
 		localtun[len(localtun)-1] += 2
-		remotetun[len(remotetun)-1] += 1
+		remotetun[len(remotetun)-1]++
 	}
 
 	keyfile := fmt.Sprintf("%s%s-%d.key",ovpn.tmp,remoteip.String(),remoteport)
@@ -81,7 +81,7 @@ func (ovpn *OVPNBackend) Connect(remoteip,tunIP net.IP,
 	}
 	keyhandle.Close()
 
-	var opts []string = append(ovpnOpts,
+	opts := append(ovpnOpts,
 			"--remote", remoteip.String(),
 			"--rport", fmt.Sprintf("%d",remoteport),
 			"--lport", fmt.Sprintf("%d",localport),
@@ -139,7 +139,7 @@ func (conn OVPNConn) Log() (io.Reader,io.Reader) {
 	return conn.outBuffer,conn.errBuffer
 }
 
-var ovpnOpts []string = []string{
+var ovpnOpts = []string{
 	"--mode", "p2p",
 	"--proto", "udp",
 	"--dev", "tap",

@@ -52,7 +52,7 @@ func main() {
 
 	friends := make([]string,len(conf.Friends))
 	i := 0
-	for f,_ := range conf.Friends {
+	for f := range conf.Friends {
 		friends[i] = f
 		i++
 	}

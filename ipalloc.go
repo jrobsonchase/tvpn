@@ -41,13 +41,13 @@ type IPManager struct {
 	Tuns  int
 }
 
-func (i *IPManager) Init() {
-	if i.reinit {
-		i.stopCurrent()
+func (ipman *IPManager) Init() {
+	if ipman.reinit {
+		ipman.stopCurrent()
 	}
-	i.reqs = make(chan IPReq)
-	i.reinit = true
-	go ipAllocator(i.reqs,i.Start,i.Tuns)
+	ipman.reqs = make(chan IPReq)
+	ipman.reinit = true
+	go ipAllocator(ipman.reqs,ipman.Start,ipman.Tuns)
 }
 
 func (ipman *IPManager) Configure(conf IPConfig) {
@@ -161,7 +161,7 @@ func indexToIP(start net.IP, index int) net.IP {
 func isGreater(lhs,rhs net.IP) bool {
 	lhs4 := lhs.To4()
 	rhs4 := rhs.To4()
-	for i,_ := range lhs4 {
+	for i := range lhs4 {
 		if lhs4[i] > rhs4[i] {
 			return true
 		}

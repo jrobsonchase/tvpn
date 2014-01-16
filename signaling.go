@@ -27,3 +27,9 @@ type SigBackend interface {
 }
 
 type SigConfig map[string]string
+
+const (
+	SigDisconnected = Error("Signaling backend disconnected.")
+	SigUserTaken = Error("Username already in use.")
+	SigAuthInvalid = Error("Signaling authentication failed.")
+)
