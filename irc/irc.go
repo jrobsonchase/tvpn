@@ -22,6 +22,7 @@ package irc
 import (
 	"sync"
 	"github.com/Pursuit92/irc"
+	"github.com/Pursuit92/pubsub"
 	"github.com/Pursuit92/tvpn"
 	"github.com/Pursuit92/LeveledLogger/log"
 )
@@ -34,7 +35,7 @@ func SetLogLevel(n int) {
 type IRCBackend struct {
 	Nick,Chan,Server string
 	Conn        *irc.Conn
-	Messages    <-chan irc.CmdErr
+	Messages    <-chan pubsub.Matchable
 }
 
 func (i *IRCBackend) Configure(conf tvpn.SigConfig) bool {
@@ -82,15 +83,14 @@ func (i *IRCBackend) Connect() error {
 	}
 
 	log.Out.Lprintln(2,"Join success, registering listeners for join/part")
-	joinpart, _ := chann.Expect(irc.Command{Prefix: "", Command: "(JOIN)|(PART)", Params: []string{}})
-	quit, _ := conn.Expect(irc.Command{Prefix: "", Command: "QUIT", Params: []string{}})
+	joinpartquit, _ := chann.Subscribe(irc.Command{Prefix: "", Command: "(QUIT)|(JOIN)|(PART)", Params: []string{}})
 
-	msgs, err := conn.Expect(irc.Command{Prefix: "", Command: "PRIVMSG", Params: []string{i.Nick,".*"}})
+	msgs, err := conn.Subscribe(irc.Command{Prefix: "", Command: "PRIVMSG", Params: []string{i.Nick,".*"}})
 	if err != nil {
 		return err
 	}
 
-	i.Messages = combine([]<-chan irc.CmdErr{joinpart.Chan,quit.Chan,msgs.Chan})
+	i.Messages = combine([]<-chan pubsub.Matchable{joinpartquit.Chan,msgs.Chan})
 
 	i.Conn = conn
 
@@ -100,7 +100,8 @@ func (i *IRCBackend) Connect() error {
 
 
 func (i IRCBackend) RecvMessage() (tvpn.Message,error) {
-	for input := range i.Messages {
+	for match := range i.Messages {
+		input := match.(irc.CmdErr)
 		if input.Err != nil {
 			return tvpn.Message{},input.Err
 		}
@@ -134,12 +135,12 @@ func (i IRCBackend) SendMessage(mes tvpn.Message) error {
 		Params: []string{mes.To, mes.String()}})
 }
 
-func combine(inputs []<-chan irc.CmdErr) <-chan irc.CmdErr {
-	output := make(chan irc.CmdErr, len(inputs))
+func combine(inputs []<-chan pubsub.Matchable) <-chan pubsub.Matchable {
+	output := make(chan pubsub.Matchable, len(inputs))
 	var group sync.WaitGroup
 	for i := range inputs {
 		group.Add(1)
-		go func(input <-chan irc.CmdErr) {
+		go func(input <-chan pubsub.Matchable) {
 			for val := range input {
 				output <- val
 			}

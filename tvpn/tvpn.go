@@ -22,8 +22,8 @@ package main
 import (
 	"flag"
 	"os"
-	"time"
-	"runtime"
+	//"time"
+	//"runtime"
 	"github.com/Pursuit92/tvpn"
 	"github.com/Pursuit92/tvpn/ovpn"
 	"github.com/Pursuit92/tvpn/stun"
@@ -40,6 +40,7 @@ func exitError(s string) {
 
 func main() {
 
+	/*
 	go func() {
 		for _ = range time.Tick(5 * time.Second) {
 			bsize := 1024 * 1024
@@ -51,6 +52,7 @@ func main() {
 			println("Read",n,"bytes")
 		}
 	}()
+	*/
 
 	//runtime.GOMAXPROCS(runtime.NumCPU())
 	verboseLevel := flag.Int("v",1,"Verbosity level. Set to 1 by default")
