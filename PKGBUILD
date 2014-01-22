@@ -10,6 +10,7 @@ arch=('i686' 'x86_64')
 url="http://github.com/Pursuit92/tvpn"
 license=('GPL2')
 depends=('openvpn')
+backup=('etc/tvpn.config')
 makedepends=('go' 'git')
 source=('git://github.com/Pursuit92/tvpn')
 
@@ -36,10 +37,10 @@ build() {
 }
 
 package() {
-	mkdir -p ${pkgdir}/usr/share/tvpn ${pkgdir}/usr/bin ${pkgdir}/usr/lib/systemd/system
+	mkdir -p ${pkgdir}/etc ${pkgdir}/usr/bin ${pkgdir}/usr/lib/systemd/system
 
 	cp ${srcdir}/Go/bin/tvpn ${pkgdir}/usr/bin/
-	cp ${srcdir}/Go/src/github.com/Pursuit92/tvpn/tvpn.config ${pkgdir}/usr/share/tvpn/
+	cp ${srcdir}/Go/src/github.com/Pursuit92/tvpn/tvpn.config ${pkgdir}/etc/
 	cp ${srcdir}/Go/src/github.com/Pursuit92/tvpn/tvpn.service ${pkgdir}/usr/lib/systemd/system/
 }
 

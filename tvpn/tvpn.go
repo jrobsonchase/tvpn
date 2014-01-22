@@ -56,7 +56,7 @@ func main() {
 
 	//runtime.GOMAXPROCS(runtime.NumCPU())
 	verboseLevel := flag.Int("v",1,"Verbosity level. Set to 1 by default")
-	configPath := flag.String("config","/usr/share/tvpn/tvpn.config","JSON Configuration file")
+	configPath := flag.String("config","/etc/tvpn.config","JSON Configuration file")
 	flag.Parse()
 
 	conf,err := tvpn.ReadConfig(*configPath)
