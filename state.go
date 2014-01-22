@@ -24,95 +24,74 @@ import (
 	"fmt"
 	"net"
 	"github.com/Pursuit92/tvpn/dh"
+	"github.com/Pursuit92/state"
 )
 
 type ConState struct {
-	State        int
 	Name         string
+	Init         bool
+	tvpn		 *TVPN
 	Params       []dh.Params
 	Key          [][64]byte
 	keys		 int
-	IP           net.IP
+	Tun          net.IP
 	Port		 int
-	Friend, Init bool
-	Data		 Friend
 	Conn		 VPNConn
+	mach		 state.Simple
+	resets		 int
 }
 
-const (
-	NoneState int = iota
-	InitState
-	DHNeg
-	TunNeg
-	ConNeg
-	Connected
-	DeleteMe
-	Validate
-)
-
-func (st *ConState) Input(mes Message, t *TVPN) {
-	log.Out.Lprintf(4,"Got message: %s\n",mes.String())
-	switch st.State {
-	case NoneState:
-		log.Out.Lprintf(3,"in NoneState\n")
-		st.noneState(mes,t)
-		log.Out.Lprintf(3,"Done with state update!\n")
-	case InitState:
-		log.Out.Lprintf(3,"in InitState\n")
-		st.initState(mes,t)
-		log.Out.Lprintf(3,"Done with state update!\n")
-	case DHNeg:
-		log.Out.Lprintf(3,"in DHNeg\n")
-		st.dhnegState(mes,t)
-		log.Out.Lprintf(3,"Done with state update!\n")
-	case TunNeg:
-		log.Out.Lprintf(3,"in TunNeg\n")
-		st.tunnegState(mes,t)
-		log.Out.Lprintf(3,"Done with state update!\n")
-	case ConNeg:
-		log.Out.Lprintf(3,"in ConNeg\n")
-		st.connegState(mes,t)
-		log.Out.Lprintf(3,"Done with state update!\n")
-	case Connected:
-		log.Out.Lprintf(3,"in Connected\n")
-		st.connectedState(mes,t)
-		log.Out.Lprintf(3,"Done with state update!\n")
-	default:
-	}
+func (c *ConState) Push(s ...state.StateTrans) {
+	c.mach.Push(s...)
 }
 
-func (st *ConState) Reset(reason string, t *TVPN) {
-	st.Cleanup(t)
-	*st = *(NewState(st.Name,st.Data,st.Friend,st.Init,t))
+func (c *ConState) Pop() (state.StateTrans,error) {
+	return c.mach.Pop()
+}
+
+func (st *ConState) Reset(reason string) {
+	st.Cleanup()
 	if reason != "" {
 		log.Out.Lprintf(3,"Conversation with %s reset. Reason: %s\n",st.Name,reason)
 	}
+	st.resets++
+	if st.resets > 3 {
+		st.Push(trapState)
+	} else {
+		*st = *(NewState(st.Name,st.Init,st.tvpn))
+	}
 }
 
-func NewState(name string, fData Friend, friend,init bool,t *TVPN) *ConState {
-	st := ConState{}
-	st.keys = 0
-	st.Name = name
-	st.Friend = friend
-	st.Init = init
-	st.Data = fData
+func NewState(name string, init bool,t *TVPN) *ConState {
+	st := &ConState{Name: name,
+		Init: init,
+		tvpn: t}
 	if init {
 		t.Sig.SendMessage(Message{Type: Init, To: name})
-		st.State = InitState
+		st.Push(initState)
 	} else {
-		st.State = NoneState
+		st.Push(noneState)
 	}
-	return &st
+	return st
+}
+
+func trapState(sm state.StateMachine,mesInt interface{}) error {
+	sm.Push(trapState)
+	return nil
 }
 
 // NoneState is the state in which we wait for an Init
 // Next state is DHNeg after a valid Init
-func (st *ConState) noneState(mes Message, t *TVPN) {
+func noneState(sm state.StateMachine,mesInt interface{}) error {
+	st := sm.(*ConState)
+	t := st.tvpn
+	mes := mesInt.(Message)
 	switch mes.Type {
 	case Init:
-		if st.Friend {
+		_, ok := t.IsFriend(st.Name)
+		if ok {
 			t.Sig.SendMessage(Message{Type: Accept, To: st.Name})
-			st.State = DHNeg
+			st.Push(dhNegState)
 			st.Params = make([]dh.Params, 4)
 			st.Key = make([][64]byte, 4)
 			for i := 0; i < 4; i++ {
@@ -125,21 +104,25 @@ func (st *ConState) noneState(mes Message, t *TVPN) {
 			}
 		} else {
 			t.Sig.SendMessage(Message{To: st.Name, Type: Deny, Data: map[string]string{"reason": "Not Authorized"}})
-			st.State = DeleteMe
+			st.Push(noneState)
 		}
 	default:
 		t.Sig.SendMessage(Message{To: st.Name, Type: Reset, Data: map[string]string{
 			"reason": "Invalid state: None"}})
-			st.Reset("",t)
+			st.Push(noneState)
 	}
+	return nil
 }
 
 // Init state is after Init is sent and before Accept is received
 // Next state is DHNeg
-func (st *ConState) initState(mes Message, t *TVPN) {
+func initState(sm state.StateMachine,mesInt interface{}) error {
+	st := sm.(*ConState)
+	t := st.tvpn
+	mes := mesInt.(Message)
 	switch mes.Type {
 	case Accept:
-		st.State = DHNeg
+		st.Push(dhNegState)
 		st.Params = make([]dh.Params, 4)
 		st.Key = make([][64]byte, 4)
 		for i := 0; i < 4; i++ {
@@ -150,14 +133,20 @@ func (st *ConState) initState(mes Message, t *TVPN) {
 				"y": st.Params[i].YS(),
 			}})
 		}
+	case Deny:
+		st.Push(trapState)
 	default:
 		t.Sig.SendMessage(Message{To: st.Name, Type: Reset, Data: map[string]string{
 			"reason": "Invalid state: Init"}})
-			st.Reset("",t)
+			st.Reset("")
 	}
+	return nil
 }
 
-func (st *ConState) dhnegState(mes Message, t *TVPN) {
+func dhNegState(sm state.StateMachine,mesInt interface{}) error {
+	st := sm.(*ConState)
+	t := st.tvpn
+	mes := mesInt.(Message)
 	switch mes.Type {
 	case Dhpub:
 		x, y, i, err := mes.DhParams()
@@ -165,91 +154,106 @@ func (st *ConState) dhnegState(mes Message, t *TVPN) {
 			t.Sig.SendMessage(Message{To: st.Name, Type: Reset, Data: map[string]string{
 				"reason": "Invalid DH Params",
 			}})
-			st.Reset("",t)
-			return
+			st.Reset("")
+			return nil
 		}
 		st.Key[i] = dh.GenKey(st.Params[i], dh.Params{X: x, Y: y})
 		st.keys++
 		if st.keys < 4 {
-			return
+			st.Push(dhNegState)
+			return nil
 		}
-		st.IP = t.Alloc.Request(nil)
-		t.Sig.SendMessage(Message{Type: Tunnip, To: st.Name, Data: map[string]string{"ip": st.IP.String()}})
-		st.State = TunNeg
+		st.Tun = t.Alloc.Request(nil)
+		t.Sig.SendMessage(Message{Type: Tunnip, To: st.Name, Data: map[string]string{"ip": st.Tun.String()}})
+		st.Push(tunNegState)
 	default:
 		t.Sig.SendMessage(Message{Type: Reset, Data: map[string]string{
 			"reason": "Invalid state: DHNeg"}})
-			st.Reset("",t)
+			st.Reset("")
 
 	}
+	return nil
 }
 
-func (st *ConState) tunnegState(mes Message, t *TVPN) {
+func tunNegState(sm state.StateMachine,mesInt interface{}) error {
+	st := sm.(*ConState)
+	t := st.tvpn
+	mes := mesInt.(Message)
 	switch mes.Type {
 	case Tunnip:
 		ip,_ := mes.IPInfo()
-		if ! ip.Equal(st.IP) {
-			if isGreater(ip,st.IP) {
-				t.Alloc.Release(st.IP)
-				st.IP = t.Alloc.Request(ip)
+		if ! ip.Equal(st.Tun) {
+			if isGreater(ip,st.Tun) {
+				t.Alloc.Release(st.Tun)
+				st.Tun = t.Alloc.Request(ip)
 			}
-			t.Sig.SendMessage(Message{Type: Tunnip, To: st.Name, Data: map[string]string{"ip": st.IP.String()}})
-			return
+			t.Sig.SendMessage(Message{Type: Tunnip, To: st.Name, Data: map[string]string{"ip": st.Tun.String()}})
+			st.Push(tunNegState)
+			return nil
 		}
 		st.Port = rgen.Int() % (65536 - 49152) + 49152
 		ip,port,err := t.Stun.DiscoverExt(st.Port)
 		if err != nil {
 			t.Sig.SendMessage(Message{Type: Reset, Data: map[string]string{
 				"reason": "Failed to discover external connection info"}})
-			st.Reset("",t)
-			return
+			st.Reset("")
+			return nil
 		}
 		t.Sig.SendMessage(Message{Type: Conninfo, To: st.Name, Data: map[string]string{
 			"port": fmt.Sprintf("%d",port),
 			"ip": ip.String(),
 		}})
-		st.State = ConNeg
+		st.Push(conNegState)
 	default:
 		t.Sig.SendMessage(Message{Type: Reset, Data: map[string]string{
 			"reason": "Invalid state: DHNeg"}})
-			st.Reset("",t)
+			st.Reset("")
 	}
-
+	return nil
 }
 
-func (st *ConState) connegState(mes Message,t *TVPN) {
+func conNegState(sm state.StateMachine,mesInt interface{}) error {
+	st := sm.(*ConState)
+	t := st.tvpn
+	mes := mesInt.(Message)
 	switch mes.Type {
 	case Conninfo:
 		ip,port := mes.IPInfo()
 		log.Out.Lprintf(2,"Connecting vpn...")
-		conn, err := t.VPN.Connect(ip,st.IP,port,st.Port,st.Key,st.Init,st.Data.Routes)
+		friend, _ := t.IsFriend(st.Name)
+		conn, err := t.VPN.Connect(ip,st.Tun,port,st.Port,st.Key,st.Init,friend.Routes)
 		if err == nil {
 			log.Out.Lprintf(2,"VPN Connected!\n")
 			st.Conn = conn
-			st.State = Connected
+			st.Push(connectedState)
 		} else {
 			log.Out.Lprintf(2,"Error connecting VPN: %s\n",err.Error())
+			st.Reset("")
 		}
 
 	default:
 		t.Sig.SendMessage(Message{Type: Reset, Data: map[string]string{
 			"reason": "Invalid state: DHNeg"}})
-			st.Reset("",t)
+			st.Reset("")
 	}
+	return nil
 }
 
 
-func (st *ConState) connectedState(mes Message,t *TVPN) {
+func connectedState(sm state.StateMachine,mesInt interface{}) error {
+	sm.Push(connectedState)
+	return nil
 }
 
-func (st *ConState) Cleanup(t *TVPN) {
+func (st *ConState) Cleanup() {
+	t := st.tvpn
 	if st.Conn != nil {
 		st.Conn.Disconnect()
 		st.Conn = nil
 	}
 
-	if st.IP != nil {
-		t.Alloc.Release(st.IP)
-		st.IP = nil
+	if st.Tun != nil {
+		t.Alloc.Release(st.Tun)
+		st.Tun = nil
 	}
 }

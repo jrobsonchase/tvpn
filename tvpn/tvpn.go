@@ -128,10 +128,10 @@ func main() {
 
 	tvpnInstance.Configure(*conf)
 
-	//tvpnInstance.Start()
+	tvpnInstance.Run()
 
-	m := createAPI(tvpnInstance)
+	//m := createAPI(tvpnInstance)
 
-	m.Run()
+	//m.Run()
 
 }

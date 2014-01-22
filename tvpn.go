@@ -21,6 +21,7 @@ package tvpn
 
 import (
 	"github.com/Pursuit92/LeveledLogger/log"
+	"github.com/Pursuit92/state"
 	"math/rand"
 	"time"
 )
@@ -96,30 +97,31 @@ func (t *TVPN) Run() error {
 	for msg, err = t.Sig.RecvMessage(); err == nil; msg, err = t.Sig.RecvMessage() {
 		switch msg.Type {
 		case Init:
-			friend,ok := t.IsFriend(msg.From)
 			log.Out.Lprintf(3,"Creating new state machine for %s\n",msg.From)
-			t.States[msg.From] = NewState(msg.From,friend,ok,false,t)
-			t.States[msg.From].Input(msg,t)
+			st := NewState(msg.From,false,t)
+			state.Input(st,msg)
+			t.States[msg.From] = st
 		case Join:
 			log.Out.Lprintf(3,"Received Join from %s!\n",msg.From)
-			friend,ok := t.IsFriend(msg.From)
+			_, ok := t.IsFriend(msg.From)
 			if ok {
-				t.States[msg.From] = NewState(msg.From,friend,true,true,t)
+				st := NewState(msg.From,true,t)
+				t.States[msg.From] = st
 			}
 			log.Out.Lprintln(3,"Done with join!")
 
 		case Quit:
 			st,exists := t.States[msg.From]
 			if exists {
-				st.Cleanup(t)
+				st.Cleanup()
 				delete(t.States,msg.From)
 			}
 		case Reset:
-			t.States[msg.From].Reset(msg.Data["reason"],t)
+			t.States[msg.From].Reset(msg.Data["reason"])
 		default:
 			st,exists := t.States[msg.From]
 			if exists {
-				st.Input(msg,t)
+				state.Input(st,msg)
 			} else {
 				// do stuff here
 			}
@@ -140,7 +142,7 @@ func (t *TVPN) Stop() {
 
 func (t *TVPN) Cleanup() {
 	for i,v := range t.States {
-		v.Cleanup(t)
+		v.Cleanup()
 		delete(t.States, i)
 	}
 }
